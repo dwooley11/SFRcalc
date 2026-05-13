@@ -868,15 +868,15 @@
 <!-- ─── HERO / ENTRY ─── -->
 <section class="hero" id="hero">
   <h1>Analyze an Investment<br><span class="gold">in one paste.</span></h1>
-  <p class="hero-sub">Paste a Realtor.com link or type an address. We'll pull the listing preview and run a full cash-flow model below.</p>
+  <p class="hero-sub">Paste a Zillow or Realtor.com link, or type an address. We'll pull the listing preview and run a full cash-flow model below.</p>
   <div class="entry">
-    <input type="text" id="entry" placeholder="https://www.realtor.com/realestateandhomes-detail/... or 1234 Main St, Waco, TX 76710" autocomplete="off" />
+    <input type="text" id="entry" placeholder="https://www.zillow.com/homedetails/... or https://www.realtor.com/... or 1234 Main St, Waco, TX 76710" autocomplete="off" />
     <button class="entry-btn" id="entryBtn" onclick="handleEntry()">Load <span aria-hidden="true">→</span></button>
   </div>
   <div class="entry-status" id="entryStatus"></div>
 </section>
 
-<!-- ─── REALTOR.COM PREVIEW ─── -->
+<!-- ─── LISTING PREVIEW ─── -->
 <section class="preview-wrap" id="previewWrap" style="display:none;">
   <div class="preview-card">
     <div id="previewImgWrap">
@@ -890,7 +890,7 @@
         <div class="preview-stats" id="previewStats"></div>
         <div class="preview-desc" id="previewDesc"></div>
       </div>
-      <a class="preview-link" id="previewLink" href="#" target="_blank" rel="noopener">View on Realtor.com ↗</a>
+      <a class="preview-link" id="previewLink" href="#" target="_blank" rel="noopener">View listing ↗</a>
     </div>
   </div>
 </section>
@@ -1142,23 +1142,25 @@ async function handleEntry() {
   status.textContent = '';
 
   const isRealtor = /realtor\.com/i.test(input);
+  const isZillow  = /zillow\.com/i.test(input);
 
-  if (isRealtor) {
+  if (isRealtor || isZillow) {
+    const source = isZillow ? 'Zillow' : 'Realtor.com';
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Loading';
-    status.textContent = 'Fetching Realtor.com listing…';
+    status.textContent = `Fetching ${source} listing…`;
 
     // Parse URL first for instant address/zip
-    const urlInfo = parseRealtorUrl(input);
+    const urlInfo = isZillow ? parseZillowUrl(input) : parseRealtorUrl(input);
     if (urlInfo) {
-      document.getElementById('address').value = urlInfo.address;
-      document.getElementById('zip').value = urlInfo.zip;
+      if (urlInfo.address) document.getElementById('address').value = urlInfo.address;
+      if (urlInfo.zip)     document.getElementById('zip').value     = urlInfo.zip;
     }
 
     let fetched = {};
     let fetchFailed = false;
     try {
-      fetched = await fetchRealtorListing(input);
+      fetched = isZillow ? await fetchZillowListing(input) : await fetchRealtorListing(input);
     } catch (err) {
       fetchFailed = true;
     }
@@ -1167,7 +1169,7 @@ async function handleEntry() {
     const listing = { ...fetched, url: input };
     if (urlInfo) {
       if (!listing.address) listing.address = urlInfo.address;
-      if (!listing.zip) listing.zip = urlInfo.zip;
+      if (!listing.zip)     listing.zip     = urlInfo.zip;
     }
     currentListing = listing;
     renderPreview(currentListing);
@@ -1183,9 +1185,9 @@ async function handleEntry() {
       status.className = 'entry-status error';
       const missing = [];
       if (!fetched.price) missing.push('price');
-      if (!fetched.sqft) missing.push('sq ft');
+      if (!fetched.sqft)  missing.push('sq ft');
       status.textContent = fetchFailed
-        ? `⚠ Realtor.com blocked the auto-fetch. Address pulled from URL — fill in ${missing.join(' & ')} below.`
+        ? `⚠ ${source} blocked the auto-fetch. Address pulled from URL — fill in ${missing.join(' & ')} below.`
         : `⚠ Address pulled from URL, but couldn't extract ${missing.join(' & ')}. Fill in below.`;
     } else {
       status.className = 'entry-status error';
@@ -1296,6 +1298,104 @@ async function fetchRealtorListing(url) {
   if (!addr) {
     // Fall back to OG title (often "1234 Main St, City, ST 76710 | realtor.com®")
     if (title) addr = title.replace(/\s*\|\s*realtor\.com.*$/i, '').trim();
+  }
+  if (!zip && addr) {
+    const m = addr.match(/\b(\d{5})\b/);
+    if (m) zip = m[1];
+  }
+
+  return { image, title, description, price, beds, baths, sqft, address: addr, zip };
+}
+
+// ───────── ZILLOW URL PARSER ─────────
+// Typical URL: https://www.zillow.com/homedetails/311-Heather-Run-Woodway-TX-76712/97691077_zpid/
+// Slug is hyphen-joined: <street...>-<city...>-<STATE>-<ZIP>. City word count is unknown,
+// so we only reliably extract STATE + ZIP and pass a best-guess street-ish hint.
+function parseZillowUrl(input) {
+  const m = input.match(/zillow\.com\/(?:[a-z-]+\/)?homedetails\/([^/?#]+)\/(\d+)_zpid/i);
+  if (!m) return null;
+  const parts = m[1].split('-').filter(Boolean);
+  if (parts.length < 3) return null;
+  const zip = /^\d{5}$/.test(parts[parts.length - 1]) ? parts[parts.length - 1] : null;
+  const state = /^[A-Z]{2}$/i.test(parts[parts.length - 2]) ? parts[parts.length - 2].toUpperCase() : null;
+  if (!zip || !state) return null;
+  // We don't know where street ends and city begins; join everything as a rough hint —
+  // the fetched OG/JSON should overwrite this with a properly-formatted address.
+  const rough = parts.slice(0, parts.length - 2)
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
+  return { address: `${rough}, ${state} ${zip}`, zip, state };
+}
+
+// ───────── ZILLOW FETCH (via CORS proxy) ─────────
+async function fetchZillowListing(url) {
+  const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+  const resp = await fetch(proxy);
+  if (!resp.ok) throw new Error('Proxy fetch failed');
+  const data = await resp.json();
+  const html = data.contents;
+  if (!html || html.length < 500) throw new Error('Empty response');
+
+  // Zillow shows a captcha interstitial when it detects a bot — bail early so we
+  // surface a clean "blocked" message instead of mis-parsing.
+  if (/Press &amp; Hold to confirm|px-captcha|perimeterx/i.test(html)) {
+    throw new Error('Zillow bot challenge');
+  }
+
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const og = (prop) => doc.querySelector(`meta[property="og:${prop}"]`)?.getAttribute('content');
+  const meta = (name) => doc.querySelector(`meta[name="${name}"]`)?.getAttribute('content');
+
+  const image = og('image') || meta('twitter:image');
+  const title = og('title') || doc.title;
+  const description = og('description') || meta('description') || '';
+
+  let price, beds, baths, sqft, addr, zip;
+
+  // JSON-LD (Zillow sometimes embeds SingleFamilyResidence here)
+  doc.querySelectorAll('script[type="application/ld+json"]').forEach(s => {
+    try {
+      const obj = JSON.parse(s.textContent);
+      const items = Array.isArray(obj) ? obj : [obj];
+      items.forEach(item => {
+        if (item.offers?.price) price = price || parseFloat(item.offers.price);
+        if (item.address) {
+          const a = item.address;
+          if (a.streetAddress) addr = addr || [a.streetAddress, a.addressLocality, a.addressRegion, a.postalCode].filter(Boolean).join(', ');
+          if (a.postalCode) zip = zip || String(a.postalCode);
+        }
+        if (item.floorSize?.value) sqft = sqft || parseFloat(item.floorSize.value);
+      });
+    } catch(e) {}
+  });
+
+  // Regex fallbacks against Zillow's hydration JSON
+  if (!price) {
+    const m = html.match(/"price"\s*:\s*(\d{4,9})\b/)
+          || html.match(/"unformattedPrice"\s*:\s*(\d{4,9})\b/);
+    if (m) price = parseInt(m[1]);
+  }
+  if (!beds) {
+    const m = html.match(/"bedrooms?"\s*:\s*(\d+(?:\.\d+)?)/i);
+    if (m) beds = parseFloat(m[1]);
+  }
+  if (!baths) {
+    const m = html.match(/"bathrooms?"\s*:\s*(\d+(?:\.\d+)?)/i);
+    if (m) baths = parseFloat(m[1]);
+  }
+  if (!sqft) {
+    const m = html.match(/"livingArea"\s*:\s*(\d{3,6})/i)
+          || html.match(/"livingAreaValue"\s*:\s*(\d{3,6})/i);
+    if (m) sqft = parseInt(m[1]);
+  }
+  if (!addr) {
+    // Try the structured address fields Zillow embeds
+    const street = html.match(/"streetAddress"\s*:\s*"([^"]+)"/i)?.[1];
+    const city   = html.match(/"city"\s*:\s*"([^"]+)"/i)?.[1];
+    const state  = html.match(/"state"\s*:\s*"([A-Z]{2})"/i)?.[1];
+    const zc     = html.match(/"zipcode"\s*:\s*"(\d{5})"/i)?.[1];
+    if (street && city && state) addr = [street, city, state, zc].filter(Boolean).join(', ');
+    else if (title) addr = title.replace(/\s*\|\s*Zillow.*$/i, '').replace(/\s*\|\s*MLS.*$/i, '').trim();
   }
   if (!zip && addr) {
     const m = addr.match(/\b(\d{5})\b/);
