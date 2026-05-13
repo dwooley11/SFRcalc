@@ -1155,32 +1155,45 @@ async function handleEntry() {
       document.getElementById('zip').value = urlInfo.zip;
     }
 
+    let fetched = {};
+    let fetchFailed = false;
     try {
-      const listing = await fetchRealtorListing(input);
-      currentListing = { ...listing, url: input };
-      renderPreview(currentListing);
-      applyListingToInputs(currentListing);
+      fetched = await fetchRealtorListing(input);
+    } catch (err) {
+      fetchFailed = true;
+    }
+
+    // Merge URL-derived address/zip as fallback so the preview is never empty
+    const listing = { ...fetched, url: input };
+    if (urlInfo) {
+      if (!listing.address) listing.address = urlInfo.address;
+      if (!listing.zip) listing.zip = urlInfo.zip;
+    }
+    currentListing = listing;
+    renderPreview(currentListing);
+    applyListingToInputs(currentListing);
+    showApp();
+
+    const fullyLoaded = fetched.price && fetched.sqft;
+    if (fullyLoaded) {
       status.className = 'entry-status ok';
       status.textContent = '✓ Listing loaded. Adjust inputs and Calculate below.';
-      showApp();
       calculate();
-    } catch (err) {
-      // Fall back to URL-only preview
-      currentListing = {
-        url: input,
-        address: urlInfo?.address || 'Realtor.com Listing',
-        image: null
-      };
-      renderPreview(currentListing);
+    } else if (urlInfo) {
       status.className = 'entry-status error';
-      status.textContent = urlInfo
-        ? '⚠ Couldn\'t auto-fetch listing details (Realtor.com may have blocked the proxy). Address pulled from URL — fill in price & sq ft manually.'
-        : '⚠ Couldn\'t fetch listing. Fill in the details manually below.';
-      showApp();
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = 'Load <span aria-hidden="true">→</span>';
+      const missing = [];
+      if (!fetched.price) missing.push('price');
+      if (!fetched.sqft) missing.push('sq ft');
+      status.textContent = fetchFailed
+        ? `⚠ Realtor.com blocked the auto-fetch. Address pulled from URL — fill in ${missing.join(' & ')} below.`
+        : `⚠ Address pulled from URL, but couldn't extract ${missing.join(' & ')}. Fill in below.`;
+    } else {
+      status.className = 'entry-status error';
+      status.textContent = '⚠ Couldn\'t read the listing. Fill in the details manually below.';
     }
+
+    btn.disabled = false;
+    btn.innerHTML = 'Load <span aria-hidden="true">→</span>';
   } else {
     // Plain address
     document.getElementById('address').value = input;
@@ -1420,11 +1433,20 @@ function calculate() {
   const targetDscr = parseFloat(document.getElementById('targetDscr').value);
 
   if (!sqft || !price || !zip) {
+    const missing = [];
+    if (!sqft) missing.push('sq ft');
+    if (!zip) missing.push('ZIP');
+    if (!price) missing.push('purchase price');
+    const list = missing.length === 1
+      ? missing[0]
+      : missing.length === 2
+        ? missing.join(' and ')
+        : missing.slice(0, -1).join(', ') + ', and ' + missing[missing.length - 1];
     const content = document.getElementById('content');
     content.innerHTML = `
       <div class="property-header">
         <div class="property-address">${address || 'New deal'}</div>
-        <div class="property-meta"><span>Need sq ft, ZIP, and purchase price to run the model.</span></div>
+        <div class="property-meta"><span>Need ${list} to run the model.</span></div>
       </div>
     `;
     return;
