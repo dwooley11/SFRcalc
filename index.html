@@ -191,6 +191,83 @@
   .entry-status.error { color: var(--amber); }
   .entry-status.ok { color: var(--green); }
 
+  .paste-fallback {
+    max-width: 1100px;
+    margin: 14px auto 0;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    text-align: left;
+  }
+  .paste-fallback-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  .paste-fallback-steps {
+    margin: 8px 0 12px 20px;
+    padding: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-faint);
+    line-height: 1.6;
+  }
+  .paste-fallback-steps li { margin-bottom: 2px; }
+  .paste-fallback-steps strong { color: var(--text); }
+  .paste-fallback-steps kbd {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 11px;
+  }
+  .paste-fallback textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  .paste-fallback .paste-parse-btn {
+    margin-top: 10px;
+  }
+  .paste-fallback-status {
+    margin-top: 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-faint);
+    min-height: 16px;
+  }
+  .paste-fallback-status.error { color: var(--amber); }
+  .paste-fallback-status.ok { color: var(--green); }
+
+  .paste-fallback-link {
+    max-width: 1100px;
+    margin: 10px auto 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+  }
+  .link-btn:hover { color: var(--accent-bright); }
+
   /* ───────── PREVIEW CARD ───────── */
   .preview-wrap {
     max-width: 1100px;
@@ -874,6 +951,26 @@
     <button class="entry-btn" id="entryBtn" onclick="handleEntry()">Load <span aria-hidden="true">→</span></button>
   </div>
   <div class="entry-status" id="entryStatus"></div>
+
+  <!-- Paste-source fallback: works when the listing site blocks proxy fetches.
+       User opens the listing in their browser → View Page Source → paste here. -->
+  <div class="paste-fallback" id="pasteFallback" style="display:none;">
+    <div class="paste-fallback-head">
+      <strong>Site blocked the auto-fetch?</strong>
+      <button type="button" class="link-btn" id="pasteFallbackToggle" onclick="togglePasteFallback()">Hide</button>
+    </div>
+    <ol class="paste-fallback-steps">
+      <li>Open the listing in a new tab (it loads fine in your browser).</li>
+      <li>Right-click the page → <strong>View Page Source</strong> (or press <kbd>Ctrl/Cmd</kbd>+<kbd>U</kbd>).</li>
+      <li><kbd>Ctrl/Cmd</kbd>+<kbd>A</kbd> to select all, <kbd>Ctrl/Cmd</kbd>+<kbd>C</kbd> to copy, then paste below.</li>
+    </ol>
+    <textarea id="pasteSource" rows="4" placeholder="Paste the full page source here (Zillow, Homes.com, or Realtor.com)…"></textarea>
+    <button class="entry-btn paste-parse-btn" onclick="parsePastedSource()">Parse pasted source</button>
+    <div class="paste-fallback-status" id="pasteFallbackStatus"></div>
+  </div>
+  <div class="paste-fallback-link" id="pasteFallbackLink" style="display:none;">
+    Listing blocked? <button type="button" class="link-btn" onclick="togglePasteFallback(true)">Paste page source instead →</button>
+  </div>
 </section>
 
 <!-- ─── LISTING PREVIEW ─── -->
@@ -1192,11 +1289,13 @@ async function handleEntry() {
       if (!fetched.price) missing.push('price');
       if (!fetched.sqft)  missing.push('sq ft');
       status.textContent = fetchFailed
-        ? `⚠ ${source} blocked the auto-fetch. Address pulled from URL — fill in ${missing.join(' & ')} below.`
-        : `⚠ Address pulled from URL, but couldn't extract ${missing.join(' & ')}. Fill in below.`;
+        ? `⚠ ${source} blocked the auto-fetch. Paste the page source below to fill in everything automatically.`
+        : `⚠ Address pulled from URL, but couldn't extract ${missing.join(' & ')}. Paste the page source below or fill in manually.`;
+      showPasteFallback();
     } else {
       status.className = 'entry-status error';
-      status.textContent = '⚠ Couldn\'t read the listing. Fill in the details manually below.';
+      status.textContent = '⚠ Couldn\'t read the listing. Paste the page source below or fill in manually.';
+      showPasteFallback();
     }
 
     btn.disabled = false;
@@ -1215,6 +1314,108 @@ async function handleEntry() {
 function showApp() {
   document.getElementById('previewWrap').style.display = currentListing ? 'block' : 'none';
   document.getElementById('app').style.display = 'grid';
+}
+
+// ───────── PASTE-SOURCE FALLBACK ─────────
+// When the listing site blocks the proxy fetch, the user can paste the page source
+// (View Source → copy → paste) and we run the same extractors against it.
+function showPasteFallback() {
+  document.getElementById('pasteFallback').style.display = 'block';
+  document.getElementById('pasteFallbackLink').style.display = 'none';
+}
+function togglePasteFallback(forceOpen) {
+  const fb = document.getElementById('pasteFallback');
+  const link = document.getElementById('pasteFallbackLink');
+  const open = forceOpen || fb.style.display === 'none';
+  fb.style.display = open ? 'block' : 'none';
+  link.style.display = open ? 'none' : 'block';
+}
+
+function parsePastedSource() {
+  const html = document.getElementById('pasteSource').value.trim();
+  const status = document.getElementById('pasteFallbackStatus');
+  status.className = 'paste-fallback-status';
+
+  if (!html || html.length < 200) {
+    status.className = 'paste-fallback-status error';
+    status.textContent = '⚠ Paste the full page source (View Source → Select All → Copy).';
+    return;
+  }
+
+  // Auto-detect source from tell-tale markers in the HTML.
+  let source, parsed;
+  try {
+    if (/zillow\.com/i.test(html) && /zpid|hdpHeroBanner|"zpid"|building-banner/i.test(html)) {
+      source = 'Zillow';
+      parsed = parseZillowHtml(html);
+    } else if (/homes\.com/i.test(html)) {
+      source = 'Homes.com';
+      parsed = parseHomesHtml(html);
+    } else if (/realtor\.com/i.test(html)) {
+      source = 'Realtor.com';
+      parsed = parseRealtorHtml(html);
+    } else {
+      // Fall back: try each parser and use whichever returns the most fields.
+      const candidates = [
+        { src: 'Zillow', data: safeParse(parseZillowHtml, html) },
+        { src: 'Homes.com', data: safeParse(parseHomesHtml, html) },
+        { src: 'Realtor.com', data: safeParse(parseRealtorHtml, html) },
+      ].filter(c => c.data);
+      const best = candidates.sort((a, b) => scoreListing(b.data) - scoreListing(a.data))[0];
+      if (!best || scoreListing(best.data) === 0) {
+        status.className = 'paste-fallback-status error';
+        status.textContent = '⚠ Couldn\'t detect Zillow / Homes.com / Realtor.com markers in the pasted text.';
+        return;
+      }
+      source = best.src;
+      parsed = best.data;
+    }
+  } catch (e) {
+    status.className = 'paste-fallback-status error';
+    status.textContent = '⚠ Couldn\'t parse the pasted source. Make sure you copied the full page source.';
+    return;
+  }
+
+  // Merge in URL-derived address/zip from the entry input if the parse came up short.
+  const entryUrl = document.getElementById('entry').value.trim();
+  const isZillow  = /zillow\.com/i.test(entryUrl);
+  const isHomes   = /homes\.com/i.test(entryUrl);
+  const isRealtor = /realtor\.com/i.test(entryUrl);
+  const urlInfo = isZillow ? parseZillowUrl(entryUrl)
+                : isHomes  ? parseHomesUrl(entryUrl)
+                : isRealtor ? parseRealtorUrl(entryUrl)
+                : null;
+
+  const listing = { ...parsed, url: entryUrl || parsed.url };
+  if (urlInfo) {
+    if (!listing.address) listing.address = urlInfo.address;
+    if (!listing.zip)     listing.zip     = urlInfo.zip;
+  }
+
+  currentListing = listing;
+  renderPreview(currentListing);
+  applyListingToInputs(currentListing);
+  showApp();
+
+  const missing = [];
+  if (!listing.price) missing.push('price');
+  if (!listing.sqft)  missing.push('sq ft');
+  if (missing.length === 0) {
+    status.className = 'paste-fallback-status ok';
+    status.textContent = `✓ ${source} source parsed. Adjust inputs and Calculate below.`;
+    calculate();
+  } else {
+    status.className = 'paste-fallback-status error';
+    status.textContent = `⚠ ${source} source parsed, but couldn't extract ${missing.join(' & ')}. Fill in below.`;
+  }
+}
+
+function safeParse(fn, html) {
+  try { return fn(html); } catch (e) { return null; }
+}
+function scoreListing(d) {
+  if (!d) return 0;
+  return (d.price ? 1 : 0) + (d.sqft ? 1 : 0) + (d.address ? 1 : 0) + (d.beds ? 1 : 0) + (d.baths ? 1 : 0);
 }
 
 // ───────── REALTOR.COM URL PARSER ─────────
@@ -1246,7 +1447,10 @@ async function fetchRealtorListing(url) {
   const data = await resp.json();
   const html = data.contents;
   if (!html || html.length < 500) throw new Error('Empty response');
+  return parseRealtorHtml(html);
+}
 
+function parseRealtorHtml(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const og = (prop) => doc.querySelector(`meta[property="og:${prop}"]`)?.getAttribute('content');
   const meta = (name) => doc.querySelector(`meta[name="${name}"]`)?.getAttribute('content');
@@ -1346,7 +1550,10 @@ async function fetchZillowListing(url) {
   if (/Press &amp; Hold to confirm|px-captcha|perimeterx/i.test(html)) {
     throw new Error('Zillow bot challenge');
   }
+  return parseZillowHtml(html);
+}
 
+function parseZillowHtml(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const og = (prop) => doc.querySelector(`meta[property="og:${prop}"]`)?.getAttribute('content');
   const meta = (name) => doc.querySelector(`meta[name="${name}"]`)?.getAttribute('content');
@@ -1453,7 +1660,10 @@ async function fetchHomesListing(url) {
   if (/Just a moment\.\.\.|cf-browser-verification|__cf_chl|datadome/i.test(html)) {
     throw new Error('Homes.com bot challenge');
   }
+  return parseHomesHtml(html);
+}
 
+function parseHomesHtml(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const og = (prop) => doc.querySelector(`meta[property="og:${prop}"]`)?.getAttribute('content');
   const meta = (name) => doc.querySelector(`meta[name="${name}"]`)?.getAttribute('content');
