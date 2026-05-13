@@ -868,9 +868,9 @@
 <!-- ─── HERO / ENTRY ─── -->
 <section class="hero" id="hero">
   <h1>Analyze an Investment<br><span class="gold">in one paste.</span></h1>
-  <p class="hero-sub">Paste a Zillow or Realtor.com link, or type an address. We'll pull the listing preview and run a full cash-flow model below.</p>
+  <p class="hero-sub">Paste a Zillow, Realtor.com, or Homes.com link, or type an address. We'll pull the listing preview and run a full cash-flow model below.</p>
   <div class="entry">
-    <input type="text" id="entry" placeholder="https://www.zillow.com/homedetails/... or https://www.realtor.com/... or 1234 Main St, Waco, TX 76710" autocomplete="off" />
+    <input type="text" id="entry" placeholder="https://www.zillow.com/homedetails/... or https://www.realtor.com/... or https://www.homes.com/property/... or 1234 Main St, Waco, TX 76710" autocomplete="off" />
     <button class="entry-btn" id="entryBtn" onclick="handleEntry()">Load <span aria-hidden="true">→</span></button>
   </div>
   <div class="entry-status" id="entryStatus"></div>
@@ -1143,15 +1143,18 @@ async function handleEntry() {
 
   const isRealtor = /realtor\.com/i.test(input);
   const isZillow  = /zillow\.com/i.test(input);
+  const isHomes   = /homes\.com/i.test(input);
 
-  if (isRealtor || isZillow) {
-    const source = isZillow ? 'Zillow' : 'Realtor.com';
+  if (isRealtor || isZillow || isHomes) {
+    const source = isZillow ? 'Zillow' : isHomes ? 'Homes.com' : 'Realtor.com';
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Loading';
     status.textContent = `Fetching ${source} listing…`;
 
     // Parse URL first for instant address/zip
-    const urlInfo = isZillow ? parseZillowUrl(input) : parseRealtorUrl(input);
+    const urlInfo = isZillow ? parseZillowUrl(input)
+                  : isHomes  ? parseHomesUrl(input)
+                  :            parseRealtorUrl(input);
     if (urlInfo) {
       if (urlInfo.address) document.getElementById('address').value = urlInfo.address;
       if (urlInfo.zip)     document.getElementById('zip').value     = urlInfo.zip;
@@ -1160,7 +1163,9 @@ async function handleEntry() {
     let fetched = {};
     let fetchFailed = false;
     try {
-      fetched = isZillow ? await fetchZillowListing(input) : await fetchRealtorListing(input);
+      fetched = isZillow ? await fetchZillowListing(input)
+              : isHomes  ? await fetchHomesListing(input)
+              :            await fetchRealtorListing(input);
     } catch (err) {
       fetchFailed = true;
     }
@@ -1396,6 +1401,120 @@ async function fetchZillowListing(url) {
     const zc     = html.match(/"zipcode"\s*:\s*"(\d{5})"/i)?.[1];
     if (street && city && state) addr = [street, city, state, zc].filter(Boolean).join(', ');
     else if (title) addr = title.replace(/\s*\|\s*Zillow.*$/i, '').replace(/\s*\|\s*MLS.*$/i, '').trim();
+  }
+  if (!zip && addr) {
+    const m = addr.match(/\b(\d{5})\b/);
+    if (m) zip = m[1];
+  }
+
+  return { image, title, description, price, beds, baths, sqft, address: addr, zip };
+}
+
+// ───────── HOMES.COM URL PARSER ─────────
+// Typical URL: https://www.homes.com/property/10337-fallen-leaf-dr-waco-tx-76712/id-XXXXXXX/
+// Slug is hyphen-joined: <street...>-<city...>-<STATE>[-<ZIP>]. City word count is unknown,
+// so we only reliably extract STATE (+ ZIP if present) and pass a best-guess street-ish hint.
+function parseHomesUrl(input) {
+  const m = input.match(/homes\.com\/property\/([^/?#]+)/i);
+  if (!m) return null;
+  const tokens = m[1].split('-').filter(Boolean);
+  if (tokens.length < 3) return null;
+
+  let zip, stateIdx = -1;
+  // ZIP at the tail?
+  if (/^\d{5}$/.test(tokens[tokens.length - 1]) && /^[a-z]{2}$/i.test(tokens[tokens.length - 2])) {
+    zip = tokens[tokens.length - 1];
+    stateIdx = tokens.length - 2;
+  } else if (/^[a-z]{2}$/i.test(tokens[tokens.length - 1])) {
+    stateIdx = tokens.length - 1;
+  } else {
+    return null;
+  }
+
+  const state = tokens[stateIdx].toUpperCase();
+  // Best-effort street/city split: last 1–2 tokens before state are the city; rest is street.
+  // We can't know city word count from the URL, so just join everything as a hint;
+  // the fetched JSON-LD should overwrite this with a properly-formatted address.
+  const rest = tokens.slice(0, stateIdx).map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(' ');
+  const address = [rest, state, zip].filter(Boolean).join(', ');
+  return { address, zip, state };
+}
+
+// ───────── HOMES.COM FETCH (via CORS proxy) ─────────
+async function fetchHomesListing(url) {
+  const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+  const resp = await fetch(proxy);
+  if (!resp.ok) throw new Error('Proxy fetch failed');
+  const data = await resp.json();
+  const html = data.contents;
+  if (!html || html.length < 500) throw new Error('Empty response');
+
+  // Cloudflare / DataDome bot challenge — bail early so we surface a clean message.
+  if (/Just a moment\.\.\.|cf-browser-verification|__cf_chl|datadome/i.test(html)) {
+    throw new Error('Homes.com bot challenge');
+  }
+
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const og = (prop) => doc.querySelector(`meta[property="og:${prop}"]`)?.getAttribute('content');
+  const meta = (name) => doc.querySelector(`meta[name="${name}"]`)?.getAttribute('content');
+
+  const image = og('image') || meta('twitter:image');
+  const title = og('title') || doc.title;
+  const description = og('description') || meta('description') || '';
+
+  let price, beds, baths, sqft, addr, zip;
+
+  // JSON-LD (homes.com typically embeds SingleFamilyResidence / Product / Residence)
+  doc.querySelectorAll('script[type="application/ld+json"]').forEach(s => {
+    try {
+      const obj = JSON.parse(s.textContent);
+      const items = Array.isArray(obj) ? obj : [obj];
+      items.forEach(item => {
+        if (item.offers?.price) price = price || parseFloat(item.offers.price);
+        if (item.address) {
+          const a = item.address;
+          if (a.streetAddress) addr = addr || [a.streetAddress, a.addressLocality, a.addressRegion, a.postalCode].filter(Boolean).join(', ');
+          if (a.postalCode) zip = zip || String(a.postalCode);
+        }
+        if (item.numberOfRooms) beds = beds || parseFloat(item.numberOfRooms);
+        if (item.numberOfBedrooms) beds = beds || parseFloat(item.numberOfBedrooms);
+        if (item.numberOfBathroomsTotal) baths = baths || parseFloat(item.numberOfBathroomsTotal);
+        if (item.floorSize?.value) sqft = sqft || parseFloat(item.floorSize.value);
+      });
+    } catch(e) {}
+  });
+
+  // Regex fallbacks on raw HTML (homes.com embeds Apollo / Next.js state)
+  if (!price) {
+    const m = html.match(/"listPrice"\s*:\s*(\d{4,9})\b/)
+          || html.match(/"price"\s*:\s*(\d{4,9})\b/);
+    if (m) price = parseInt(m[1]);
+  }
+  if (!beds) {
+    const m = html.match(/"bedrooms?"\s*:\s*(\d+(?:\.\d+)?)/i)
+          || html.match(/"beds"\s*:\s*(\d+(?:\.\d+)?)/i);
+    if (m) beds = parseFloat(m[1]);
+  }
+  if (!baths) {
+    const m = html.match(/"bathrooms?"\s*:\s*(\d+(?:\.\d+)?)/i)
+          || html.match(/"baths"\s*:\s*(\d+(?:\.\d+)?)/i);
+    if (m) baths = parseFloat(m[1]);
+  }
+  if (!sqft) {
+    const m = html.match(/"squareFeet"\s*:\s*(\d{3,6})/i)
+          || html.match(/"livingArea"\s*:\s*(\d{3,6})/i)
+          || html.match(/"sqft"\s*:\s*(\d{3,6})/i);
+    if (m) sqft = parseInt(m[1]);
+  }
+  if (!addr) {
+    const street = html.match(/"streetAddress"\s*:\s*"([^"]+)"/i)?.[1];
+    const city   = html.match(/"city"\s*:\s*"([^"]+)"/i)?.[1]
+                || html.match(/"addressLocality"\s*:\s*"([^"]+)"/i)?.[1];
+    const state  = html.match(/"state(?:Code)?"\s*:\s*"([A-Z]{2})"/i)?.[1]
+                || html.match(/"addressRegion"\s*:\s*"([A-Z]{2})"/i)?.[1];
+    const zc     = html.match(/"(?:zipCode|postalCode|zipcode)"\s*:\s*"(\d{5})"/i)?.[1];
+    if (street && city && state) addr = [street, city, state, zc].filter(Boolean).join(', ');
+    else if (title) addr = title.replace(/\s*\|\s*Homes\.com.*$/i, '').trim();
   }
   if (!zip && addr) {
     const m = addr.match(/\b(\d{5})\b/);
