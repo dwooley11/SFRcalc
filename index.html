@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DSCR Analyzer — Investment Property Cash Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0e0c;
+    --bg-elev: #15171a;
+    --bg-card: #1a1d20;
+    --border: #2a2e33;
+    --border-strong: #3a3f47;
+    --text: #e8e6e1;
+    --text-dim: #9a9690;
+    --text-faint: #5a5852;
+    --accent: #d4ff3a;
+    --accent-dim: #8aab1f;
+    --green: #4ade80;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter Tight', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(212, 255, 58, 0.04) 0%, transparent 50%),
+      radial-gradient(circle at 80% 100%, rgba(212, 255, 58, 0.02) 0%, transparent 50%);
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    background: rgba(13, 14, 12, 0.8);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .brand-mark {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+  }
+
+  .brand-mark .accent { color: var(--accent); font-style: italic; }
+
+  .brand-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .header-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  main {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 73px);
+  }
+
+  /* ───────── SIDEBAR ───────── */
+  .sidebar {
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border);
+    padding: 32px 28px;
+    overflow-y: auto;
+    max-height: calc(100vh - 73px);
+    position: sticky;
+    top: 73px;
+  }
+
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .input-group {
+    margin-bottom: 24px;
+  }
+
+  .input-group label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  .input-group input[type="text"],
+  .input-group input[type="number"],
+  .input-group textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    border-radius: 4px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .input-group input:focus,
+  .input-group textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--bg-card);
+  }
+
+  .input-group textarea {
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.5;
+  }
+
+  .input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .input-with-suffix {
+    position: relative;
+  }
+
+  .input-with-suffix .suffix {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    pointer-events: none;
+  }
+
+  button.primary {
+    width: 100%;
+    background: var(--accent);
+    color: #0a0a0a;
+    border: none;
+    padding: 12px;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: transform 0.1s, background 0.15s;
+  }
+
+  button.primary:hover {
+    background: #c5f028;
+    transform: translateY(-1px);
+  }
+
+  button.secondary {
+    width: 100%;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-top: 8px;
+    transition: all 0.15s;
+  }
+
+  button.secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ───────── MAIN CONTENT ───────── */
+  .content {
+    padding: 40px 48px;
+    max-width: 1200px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 80px 40px;
+    color: var(--text-faint);
+  }
+
+  .empty-state h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-style: italic;
+    font-size: 32px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+  }
+
+  .empty-state p {
+    max-width: 400px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .property-header {
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .property-address {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+
+  .property-meta {
+    display: flex;
+    gap: 24px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .property-meta span strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* ───────── DSCR HERO ───────── */
+  .dscr-hero {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dscr-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+
+  .dscr-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+
+  .dscr-value {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dscr-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+
+  .dscr-number {
+    font-family: var(--font-display);
+    font-size: 64px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .dscr-number.good { color: var(--green); }
+  .dscr-number.ok { color: var(--amber); }
+  .dscr-number.bad { color: var(--red); }
+
+  .dscr-status {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .dscr-status.good { color: var(--green); }
+  .dscr-status.ok { color: var(--amber); }
+  .dscr-status.bad { color: var(--red); }
+
+  .metric-stat {
+    border-left: 1px solid var(--border);
+    padding-left: 24px;
+  }
+
+  .metric-stat .label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+    margin-bottom: 6px;
+  }
+
+  .metric-stat .value {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  .metric-stat .sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* ───────── SLIDERS ───────── */
+  .sliders {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .slider-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+  }
+
+  .slider-header .label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+  }
+
+  .slider-header .value {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  .slider-header .delta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-left: 8px;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid var(--bg-card);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid var(--bg-card);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .slider-range {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top: 8px;
+  }
+
+  /* ───────── BREAKDOWN ───────── */
+  .breakdown {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .breakdown-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+  }
+
+  .breakdown-card h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 18px;
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+
+  .line-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .line-item:last-child {
+    border-bottom: none;
+  }
+
+  .line-item .label {
+    color: var(--text-dim);
+  }
+
+  .line-item .value {
+    font-family: var(--font-mono);
+    font-weight: 500;
+  }
+
+  .line-item.total {
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 2px solid var(--border-strong);
+    border-bottom: none;
+  }
+
+  .line-item.total .label {
+    color: var(--text);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  .line-item.total .value {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .line-item .sub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* ───────── SETTINGS MODAL ───────── */
+  .settings-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .settings-toggle:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 100;
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-backdrop.open {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  .modal h2 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+
+  .modal p.muted {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+
+  .tax-table {
+    margin-top: 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .tax-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 40px;
+    gap: 8px;
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+
+  .tax-row:last-child {
+    border-bottom: none;
+  }
+
+  .tax-row input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    border-radius: 3px;
+  }
+
+  .tax-row button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-faint);
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 4px;
+    font-size: 14px;
+  }
+
+  .tax-row button:hover {
+    color: var(--red);
+    border-color: var(--red);
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .modal-footer button {
+    width: auto;
+    padding: 10px 20px;
+  }
+
+  .help-text {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 6px;
+    font-style: italic;
+  }
+
+  .paste-hint {
+    background: rgba(212, 255, 58, 0.05);
+    border: 1px dashed var(--accent-dim);
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  .paste-hint strong { color: var(--accent); }
+
+  @media (max-width: 980px) {
+    main { grid-template-columns: 1fr; }
+    .sidebar { position: relative; max-height: none; top: 0; }
+    .dscr-grid { grid-template-columns: 1fr; gap: 16px; }
+    .metric-stat { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 16px; }
+    .breakdown { grid-template-columns: 1fr; }
+    .sliders { grid-template-columns: 1fr; }
+    .content { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">DSCR<span class="accent">·</span>Analyzer</div>
+    <div class="brand-tag">Investment Property Cash Flow</div>
+  </div>
+  <div style="display: flex; gap: 12px; align-items: center;">
+    <span class="header-meta" id="lastCalc">Awaiting input</span>
+    <button class="settings-toggle" onclick="openSettings()">Settings</button>
+  </div>
+</header>
+
+<main>
+  <aside class="sidebar">
+    <div class="section-label">Property</div>
+
+    <div class="input-group">
+      <label for="address">Address</label>
+      <input type="text" id="address" placeholder="123 Main St, Waco, TX 76710" />
+    </div>
+
+    <div class="input-row">
+      <div class="input-group">
+        <label for="sqft">Sq Ft</label>
+        <input type="number" id="sqft" placeholder="1850" />
+      </div>
+      <div class="input-group">
+        <label for="zip">ZIP Code</label>
+        <input type="text" id="zip" placeholder="76710" maxlength="5" />
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label for="price">Purchase Price</label>
+      <div class="input-with-suffix">
+        <input type="number" id="price" placeholder="250000" />
+        <span class="suffix">USD</span>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label for="zillowPaste">Paste from Zillow (optional)</label>
+      <textarea id="zillowPaste" placeholder="Paste listing details AND Tax History section from Zillow…"></textarea>
+      <button class="secondary" onclick="parseZillow()">Auto-Parse Pasted Text</button>
+      <div class="paste-hint">
+        <strong>Pro tip:</strong> Also paste the <strong>Tax History</strong> table. The parser computes the effective tax rate from actual prior-year bills (way more accurate than ZIP averages) and applies it to your purchase price.
+      </div>
+      <div id="taxSource" style="display:none; margin-top:8px; padding:8px 10px; background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.3); border-radius:4px; font-size:11px; color:var(--green); font-family:var(--font-mono);"></div>
+    </div>
+
+    <div class="section-label">Financing</div>
+
+    <div class="input-row">
+      <div class="input-group">
+        <label for="downPct">Down %</label>
+        <div class="input-with-suffix">
+          <input type="number" id="downPct" value="25" step="1" />
+          <span class="suffix">%</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label for="rate">Rate</label>
+        <div class="input-with-suffix">
+          <input type="number" id="rate" value="7.5" step="0.125" />
+          <span class="suffix">%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label for="term">Loan Term (years)</label>
+      <input type="number" id="term" value="30" />
+    </div>
+
+    <div class="section-label">Operating</div>
+
+    <div class="input-row">
+      <div class="input-group">
+        <label for="vacancy">Vacancy</label>
+        <div class="input-with-suffix">
+          <input type="number" id="vacancy" value="5" step="0.5" />
+          <span class="suffix">%</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label for="mgmt">Mgmt</label>
+        <div class="input-with-suffix">
+          <input type="number" id="mgmt" value="8" step="0.5" />
+          <span class="suffix">%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-row">
+      <div class="input-group">
+        <label for="maint">Maintenance</label>
+        <div class="input-with-suffix">
+          <input type="number" id="maint" value="5" step="0.5" />
+          <span class="suffix">%</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label for="capex">CapEx Reserve</label>
+        <div class="input-with-suffix">
+          <input type="number" id="capex" value="5" step="0.5" />
+          <span class="suffix">%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label for="targetDscr">Target DSCR</label>
+      <input type="number" id="targetDscr" value="1.00" step="0.05" />
+      <div class="help-text">Rent will be back-solved to hit this on first calc.</div>
+    </div>
+
+    <button class="primary" onclick="calculate()">Calculate</button>
+    <button class="secondary" onclick="resetAll()">Reset</button>
+  </aside>
+
+  <section class="content" id="content">
+    <div class="empty-state">
+      <h2>Underwrite a deal</h2>
+      <p>Enter a property address, sq ft, and purchase price — or paste a Zillow listing. The model back-solves required rent to hit your target DSCR, then lets you flex price and rent against the cash flow.</p>
+    </div>
+  </section>
+</main>
+
+<!-- Settings Modal -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <h2>Configuration</h2>
+    <p class="muted">Set your insurance rate and property tax rates by ZIP. Saved to your browser.</p>
+
+    <div class="section-label">Insurance</div>
+    <div class="input-row">
+      <div class="input-group">
+        <label for="insRate">Premium per Sq Ft</label>
+        <div class="input-with-suffix">
+          <input type="number" id="insRate" value="0.65" step="0.05" />
+          <span class="suffix">$/sqft</span>
+        </div>
+        <div class="help-text">Typical Central Texas DP-3: $0.50–$0.85/sqft.</div>
+      </div>
+      <div class="input-group">
+        <label for="insMin">Minimum Premium</label>
+        <div class="input-with-suffix">
+          <input type="number" id="insMin" value="850" step="50" />
+          <span class="suffix">USD</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">Property Tax Rates by ZIP</div>
+    <p class="muted" style="font-size:12px;">Total effective rate (e.g., 2.35 = 2.35%). Add as many ZIPs as you need.</p>
+    <div id="taxTable" class="tax-table"></div>
+    <button class="secondary" onclick="addTaxRow()" style="margin-top:8px;">+ Add ZIP</button>
+
+    <div class="input-group" style="margin-top:24px;">
+      <label for="taxDefault">Default Tax Rate (fallback)</label>
+      <div class="input-with-suffix">
+        <input type="number" id="taxDefault" value="2.30" step="0.05" />
+        <span class="suffix">%</span>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="secondary" onclick="closeSettings()">Cancel</button>
+      <button class="primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ───────── DEFAULT CONFIG ─────────
+const DEFAULT_CONFIG = {
+  insRate: 0.65,
+  insMin: 850,
+  taxDefault: 2.30,
+  taxByZip: {
+    "76701": 2.42,  // Waco
+    "76704": 2.55,  // Waco / East
+    "76705": 2.38,  // Bellmead
+    "76706": 2.40,  // Waco / Baylor
+    "76707": 2.45,  // West Waco
+    "76708": 2.35,  // Waco / North
+    "76710": 2.32,  // Woodway-adjacent
+    "76711": 2.50,  // South Waco
+    "76712": 2.10,  // Woodway / Hewitt
+    "76633": 1.95,  // China Spring
+    "76643": 2.05,  // Hewitt
+    "76657": 2.08,  // McGregor
+  }
+};
+
+let config = loadConfig();
+let currentState = null;
+
+// ───────── CONFIG MGMT ─────────
+function loadConfig() {
+  try {
+    const saved = localStorage.getItem('dscr-config');
+    if (saved) return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+  } catch(e) {}
+  return { ...DEFAULT_CONFIG };
+}
+
+function saveConfig() {
+  localStorage.setItem('dscr-config', JSON.stringify(config));
+}
+
+// ───────── SETTINGS MODAL ─────────
+function openSettings() {
+  document.getElementById('insRate').value = config.insRate;
+  document.getElementById('insMin').value = config.insMin;
+  document.getElementById('taxDefault').value = config.taxDefault;
+  renderTaxTable();
+  document.getElementById('settingsModal').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('open');
+}
+
+function renderTaxTable() {
+  const tbl = document.getElementById('taxTable');
+  tbl.innerHTML = '';
+  Object.entries(config.taxByZip).forEach(([zip, rate]) => {
+    addTaxRow(zip, rate);
+  });
+}
+
+function addTaxRow(zip = '', rate = '') {
+  const tbl = document.getElementById('taxTable');
+  const row = document.createElement('div');
+  row.className = 'tax-row';
+  row.innerHTML = `
+    <input type="text" placeholder="ZIP" value="${zip}" maxlength="5" />
+    <input type="number" placeholder="Rate %" value="${rate}" step="0.01" />
+    <button onclick="this.parentElement.remove()">×</button>
+  `;
+  tbl.appendChild(row);
+}
+
+function saveSettings() {
+  config.insRate = parseFloat(document.getElementById('insRate').value) || 0.65;
+  config.insMin = parseFloat(document.getElementById('insMin').value) || 850;
+  config.taxDefault = parseFloat(document.getElementById('taxDefault').value) || 2.30;
+
+  const newTax = {};
+  document.querySelectorAll('.tax-row').forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const z = inputs[0].value.trim();
+    const r = parseFloat(inputs[1].value);
+    if (z && !isNaN(r)) newTax[z] = r;
+  });
+  config.taxByZip = newTax;
+
+  saveConfig();
+  closeSettings();
+  if (currentState) calculate();
+}
+
+// ───────── ZILLOW PARSE ─────────
+// Holds parsed tax history; if populated, overrides ZIP-based rate
+let parsedTaxData = null;
+
+function parseZillow() {
+  const text = document.getElementById('zillowPaste').value;
+  if (!text.trim()) return;
+
+  // ── Price ── Look for first $ amount that looks like a list price.
+  // Try text BEFORE the tax history first (avoids grabbing a tax dollar value);
+  // if nothing found, scan the whole text but skip lines that start with a year.
+  const beforeTax = text.split(/tax\s*history/i)[0] || '';
+  let priceSearchText = beforeTax.trim() || text;
+  // If we're searching the whole text, strip lines that look like tax-history rows
+  if (!beforeTax.trim()) {
+    priceSearchText = text.split(/\n/).filter(l => !/^\s*(?:20\d{2}|19\d{2})\b/.test(l)).join('\n');
+  }
+  const priceMatch = priceSearchText.match(/\$\s?([\d,]+(?:\.\d+)?)\s?([KkMm]?)/);
+  if (priceMatch) {
+    let val = parseFloat(priceMatch[1].replace(/,/g, ''));
+    if (priceMatch[2].toLowerCase() === 'k') val *= 1000;
+    if (priceMatch[2].toLowerCase() === 'm') val *= 1000000;
+    if (val > 10000) document.getElementById('price').value = Math.round(val);
+  }
+
+  // ── Sq Ft ──
+  const sqftMatch = text.match(/([\d,]+)\s*(?:sq\s*\.?\s*ft|sqft|ft²|square\s*feet)/i);
+  if (sqftMatch) {
+    const sf = parseInt(sqftMatch[1].replace(/,/g, ''));
+    if (sf > 100 && sf < 50000) document.getElementById('sqft').value = sf;
+  }
+
+  // ── ZIP ──
+  const zipMatch = text.match(/\b(\d{5})(?:-\d{4})?\b/);
+  if (zipMatch) document.getElementById('zip').value = zipMatch[1];
+
+  // ── Address ──
+  const addrMatch = text.match(/(\d+\s+[\w\s.]+(?:St|Ave|Rd|Dr|Ln|Blvd|Ct|Cir|Way|Pl|Pkwy|Trl|Hwy)[^\n,]*(?:,\s*[\w\s]+)?(?:,\s*[A-Z]{2}\s*\d{5})?)/i);
+  if (addrMatch) {
+    document.getElementById('address').value = addrMatch[1].trim();
+  }
+
+  // ── Tax History ──
+  parsedTaxData = parseTaxHistory(text);
+  const banner = document.getElementById('taxSource');
+  if (parsedTaxData) {
+    banner.style.display = 'block';
+    banner.innerHTML = `✓ Tax data found: <strong>${parsedTaxData.year}</strong> bill of $${parsedTaxData.tax.toLocaleString()} on $${parsedTaxData.assessed.toLocaleString()} assessed → <strong>${parsedTaxData.rate.toFixed(3)}%</strong> effective rate`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function parseTaxHistory(text) {
+  // Find lines starting with a 4-digit year, extract dollar amounts.
+  // First $ on the line = property tax; last $ = total assessed value
+  // (handles "land + additions = total" format)
+  const lines = text.split(/\n+/);
+  const records = [];
+  for (const line of lines) {
+    const yearMatch = line.match(/^\s*(20\d{2}|19\d{2})\b/);
+    if (!yearMatch) continue;
+    const year = parseInt(yearMatch[1]);
+    const amounts = [...line.matchAll(/\$\s?([\d,]+)/g)].map(m => parseInt(m[1].replace(/,/g,'')));
+    if (amounts.length < 2) continue;
+    const tax = amounts[0];
+    const assessed = amounts[amounts.length - 1];
+    // Sanity check: tax/assessed should look like a property tax rate
+    if (tax > 100 && assessed > tax && tax/assessed > 0.003 && tax/assessed < 0.06) {
+      records.push({ year, tax, assessed, rate: (tax/assessed*100) });
+    }
+  }
+  if (records.length === 0) return null;
+  records.sort((a,b) => b.year - a.year);
+  return records[0];  // most recent
+}
+
+// ───────── CALCULATIONS ─────────
+function getTaxRate(zip) {
+  return config.taxByZip[zip] !== undefined ? config.taxByZip[zip] : config.taxDefault;
+}
+
+function pmt(principal, annualRate, years) {
+  const r = annualRate / 100 / 12;
+  const n = years * 12;
+  if (r === 0) return principal / n;
+  return principal * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+}
+
+function calculate() {
+  const address = document.getElementById('address').value.trim();
+  const sqft = parseFloat(document.getElementById('sqft').value);
+  const zip = document.getElementById('zip').value.trim();
+  const price = parseFloat(document.getElementById('price').value);
+  const downPct = parseFloat(document.getElementById('downPct').value);
+  const rate = parseFloat(document.getElementById('rate').value);
+  const term = parseFloat(document.getElementById('term').value);
+  const vacancy = parseFloat(document.getElementById('vacancy').value);
+  const mgmt = parseFloat(document.getElementById('mgmt').value);
+  const maint = parseFloat(document.getElementById('maint').value);
+  const capex = parseFloat(document.getElementById('capex').value);
+  const targetDscr = parseFloat(document.getElementById('targetDscr').value);
+
+  if (!sqft || !price || !zip) {
+    alert('Need sq ft, ZIP, and purchase price at minimum.');
+    return;
+  }
+
+  // Tax: prefer Zillow-parsed effective rate, fallback to ZIP table
+  let taxRate, taxSource;
+  if (parsedTaxData) {
+    taxRate = parsedTaxData.rate;
+    taxSource = `Zillow ${parsedTaxData.year}`;
+  } else {
+    taxRate = getTaxRate(zip);
+    taxSource = `ZIP ${zip}`;
+  }
+  const annualTax = price * (taxRate / 100);
+  const annualIns = Math.max(sqft * config.insRate, config.insMin);
+
+  const loanAmt = price * (1 - downPct / 100);
+  const monthlyPI = pmt(loanAmt, rate, term);
+  const annualDebt = monthlyPI * 12;
+
+  // Back-solve required rent for target DSCR
+  // NOI = GrossRent * (1 - vacancy/100) - GrossRent * ((mgmt+maint+capex)/100) - tax - ins
+  // NOI = GrossRent * (1 - (vacancy+mgmt+maint+capex)/100) - fixedOpex
+  // DSCR = NOI / annualDebt
+  // GrossRent = (DSCR * annualDebt + fixedOpex) / opexFactor
+  const opexFactor = 1 - (vacancy + mgmt + maint + capex) / 100;
+  const fixedOpex = annualTax + annualIns;
+  const requiredAnnualRent = (targetDscr * annualDebt + fixedOpex) / opexFactor;
+  const requiredMonthlyRent = requiredAnnualRent / 12;
+
+  currentState = {
+    address, sqft, zip, basePrice: price, baseRent: requiredMonthlyRent,
+    downPct, rate, term, vacancy, mgmt, maint, capex,
+    taxRate, taxSource, annualTax, annualIns, monthlyPI, annualDebt
+  };
+
+  renderResults();
+  document.getElementById('lastCalc').textContent = `Updated ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+}
+
+function renderResults() {
+  const s = currentState;
+  const content = document.getElementById('content');
+
+  content.innerHTML = `
+    <div class="property-header">
+      <div class="property-address">${s.address || 'Unnamed Property'}</div>
+      <div class="property-meta">
+        <span><strong>${s.sqft.toLocaleString()}</strong> sqft</span>
+        <span>ZIP <strong>${s.zip}</strong></span>
+        <span>Tax <strong>${s.taxRate.toFixed(3)}%</strong> <span style="color:var(--text-faint);font-size:10px;">(${s.taxSource})</span></span>
+        <span>Loan <strong>$${Math.round(s.basePrice * (1 - s.downPct/100)).toLocaleString()}</strong></span>
+      </div>
+    </div>
+
+    <div class="dscr-hero" id="dscrHero"></div>
+
+    <div class="sliders">
+      <div class="slider-card">
+        <div class="slider-header">
+          <div>
+            <div class="label">Monthly Rent</div>
+            <div><span class="value" id="rentVal">$0</span><span class="delta" id="rentDelta"></span></div>
+          </div>
+        </div>
+        <input type="range" id="rentSlider" min="${Math.round(s.baseRent * 0.5)}" max="${Math.round(s.baseRent * 1.5)}" step="25" value="${Math.round(s.baseRent)}" />
+        <div class="slider-range">
+          <span>$${Math.round(s.baseRent * 0.5).toLocaleString()}</span>
+          <span>Required: $${Math.round(s.baseRent).toLocaleString()}</span>
+          <span>$${Math.round(s.baseRent * 1.5).toLocaleString()}</span>
+        </div>
+      </div>
+
+      <div class="slider-card">
+        <div class="slider-header">
+          <div>
+            <div class="label">Purchase Price</div>
+            <div><span class="value" id="priceVal">$0</span><span class="delta" id="priceDelta"></span></div>
+          </div>
+        </div>
+        <input type="range" id="priceSlider" min="${Math.round(s.basePrice * 0.7)}" max="${Math.round(s.basePrice * 1.3)}" step="1000" value="${Math.round(s.basePrice)}" />
+        <div class="slider-range">
+          <span>$${Math.round(s.basePrice * 0.7).toLocaleString()}</span>
+          <span>Listed: $${Math.round(s.basePrice).toLocaleString()}</span>
+          <span>$${Math.round(s.basePrice * 1.3).toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="breakdown">
+      <div class="breakdown-card">
+        <h3>Income</h3>
+        <div id="incomeLines"></div>
+      </div>
+      <div class="breakdown-card">
+        <h3>Expenses & Debt Service</h3>
+        <div id="expenseLines"></div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('rentSlider').addEventListener('input', updateLive);
+  document.getElementById('priceSlider').addEventListener('input', updateLive);
+
+  updateLive();
+}
+
+function updateLive() {
+  const s = currentState;
+  const rent = parseFloat(document.getElementById('rentSlider').value);
+  const price = parseFloat(document.getElementById('priceSlider').value);
+
+  // Recompute with current slider values
+  const annualTax = price * (s.taxRate / 100);
+  const annualIns = s.annualIns;  // Insurance doesn't change with price
+  const loanAmt = price * (1 - s.downPct / 100);
+  const monthlyPI = pmt(loanAmt, s.rate, s.term);
+  const annualDebt = monthlyPI * 12;
+
+  const grossAnnualRent = rent * 12;
+  const vacancyLoss = grossAnnualRent * (s.vacancy / 100);
+  const effGross = grossAnnualRent - vacancyLoss;
+  const mgmtCost = grossAnnualRent * (s.mgmt / 100);
+  const maintCost = grossAnnualRent * (s.maint / 100);
+  const capexCost = grossAnnualRent * (s.capex / 100);
+  const totalOpex = mgmtCost + maintCost + capexCost + annualTax + annualIns;
+  const noi = effGross - totalOpex;
+  const dscr = noi / annualDebt;
+  const cashFlow = noi - annualDebt;
+  const monthlyCashFlow = cashFlow / 12;
+  const downPayment = price * (s.downPct / 100);
+  const coc = (cashFlow / downPayment) * 100;
+  const capRate = (noi / price) * 100;
+
+  // Update slider headers
+  document.getElementById('rentVal').textContent = `$${Math.round(rent).toLocaleString()}`;
+  document.getElementById('priceVal').textContent = `$${Math.round(price).toLocaleString()}`;
+
+  const rentDelta = rent - s.baseRent;
+  const rentDeltaEl = document.getElementById('rentDelta');
+  rentDeltaEl.textContent = rentDelta === 0 ? '' : ` ${rentDelta > 0 ? '+' : ''}$${Math.round(rentDelta).toLocaleString()}`;
+
+  const priceDelta = price - s.basePrice;
+  const priceDeltaEl = document.getElementById('priceDelta');
+  priceDeltaEl.textContent = priceDelta === 0 ? '' : ` ${priceDelta > 0 ? '+' : ''}$${Math.round(priceDelta).toLocaleString()}`;
+
+  // DSCR Hero
+  let cls = 'bad', status = 'Below break-even';
+  if (dscr >= 1.25) { cls = 'good'; status = 'Strong coverage'; }
+  else if (dscr >= 1.0) { cls = 'ok'; status = 'Above break-even'; }
+  else if (dscr >= 0.9) { cls = 'ok'; status = 'Near break-even'; }
+
+  document.getElementById('dscrHero').innerHTML = `
+    <div class="dscr-grid">
+      <div class="dscr-value">
+        <div class="dscr-label">Debt Service Coverage Ratio</div>
+        <div class="dscr-number ${cls}">${dscr.toFixed(2)}<span style="font-size:32px;color:var(--text-faint);">x</span></div>
+        <div class="dscr-status ${cls}">— ${status}</div>
+      </div>
+      <div class="metric-stat">
+        <div class="label">Monthly Cash Flow</div>
+        <div class="value" style="color: ${monthlyCashFlow >= 0 ? 'var(--green)' : 'var(--red)'}">
+          ${monthlyCashFlow >= 0 ? '+' : '−'}$${Math.abs(Math.round(monthlyCashFlow)).toLocaleString()}
+        </div>
+        <div class="sub">$${Math.round(cashFlow).toLocaleString()} / yr</div>
+      </div>
+      <div class="metric-stat">
+        <div class="label">Cash-on-Cash · Cap Rate</div>
+        <div class="value">${coc.toFixed(1)}% <span style="color:var(--text-faint);font-size:18px;">·</span> ${capRate.toFixed(2)}%</div>
+        <div class="sub">$${Math.round(downPayment).toLocaleString()} down</div>
+      </div>
+    </div>
+  `;
+
+  // Income Breakdown
+  document.getElementById('incomeLines').innerHTML = `
+    <div class="line-item">
+      <span class="label">Gross Rent (annual)</span>
+      <span class="value">$${Math.round(grossAnnualRent).toLocaleString()}</span>
+    </div>
+    <div class="line-item">
+      <span class="label">Less: Vacancy (${s.vacancy}%)</span>
+      <span class="value" style="color:var(--red)">−$${Math.round(vacancyLoss).toLocaleString()}</span>
+    </div>
+    <div class="line-item total">
+      <span class="label">Effective Gross Income</span>
+      <span class="value">$${Math.round(effGross).toLocaleString()}</span>
+    </div>
+  `;
+
+  // Expense Breakdown
+  document.getElementById('expenseLines').innerHTML = `
+    <div class="line-item">
+      <span class="label">
+        Property Tax (${s.taxRate.toFixed(3)}%)
+        <span class="sub">Source: ${s.taxSource}</span>
+      </span>
+      <span class="value">$${Math.round(annualTax).toLocaleString()}</span>
+    </div>
+    <div class="line-item">
+      <span class="label">Insurance ($${config.insRate}/sqft)</span>
+      <span class="value">$${Math.round(annualIns).toLocaleString()}</span>
+    </div>
+    <div class="line-item">
+      <span class="label">Management (${s.mgmt}%)</span>
+      <span class="value">$${Math.round(mgmtCost).toLocaleString()}</span>
+    </div>
+    <div class="line-item">
+      <span class="label">Maintenance (${s.maint}%)</span>
+      <span class="value">$${Math.round(maintCost).toLocaleString()}</span>
+    </div>
+    <div class="line-item">
+      <span class="label">CapEx Reserve (${s.capex}%)</span>
+      <span class="value">$${Math.round(capexCost).toLocaleString()}</span>
+    </div>
+    <div class="line-item total">
+      <span class="label">Net Operating Income</span>
+      <span class="value">$${Math.round(noi).toLocaleString()}</span>
+    </div>
+    <div class="line-item" style="margin-top:12px;">
+      <span class="label">
+        Annual Debt Service
+        <span class="sub">$${Math.round(monthlyPI).toLocaleString()}/mo P&I · ${s.rate}% / ${s.term}yr</span>
+      </span>
+      <span class="value">$${Math.round(annualDebt).toLocaleString()}</span>
+    </div>
+  `;
+}
+
+function resetAll() {
+  if (!confirm('Clear all inputs?')) return;
+  ['address','sqft','zip','price','zillowPaste'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('downPct').value = 25;
+  document.getElementById('rate').value = 7.5;
+  document.getElementById('term').value = 30;
+  document.getElementById('vacancy').value = 5;
+  document.getElementById('mgmt').value = 8;
+  document.getElementById('maint').value = 5;
+  document.getElementById('capex').value = 5;
+  document.getElementById('targetDscr').value = 1.00;
+  document.getElementById('taxSource').style.display = 'none';
+  parsedTaxData = null;
+  currentState = null;
+  document.getElementById('content').innerHTML = `
+    <div class="empty-state">
+      <h2>Underwrite a deal</h2>
+      <p>Enter a property address, sq ft, and purchase price — or paste a Zillow listing. The model back-solves required rent to hit your target DSCR, then lets you flex price and rent against the cash flow.</p>
+    </div>
+  `;
+  document.getElementById('lastCalc').textContent = 'Awaiting input';
+}
+</script>
+</body>
+</html>
