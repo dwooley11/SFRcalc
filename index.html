@@ -696,8 +696,9 @@
     <div class="section-label">Property</div>
 
     <div class="input-group">
-      <label for="address">Address</label>
-      <input type="text" id="address" placeholder="123 Main St, Waco, TX 76710" />
+      <label for="address">Address or Zillow Link</label>
+      <input type="text" id="address" placeholder="Type address or paste a Zillow link…" />
+      <div id="urlParseMsg" style="display:none; margin-top:6px; font-size:11px; font-family:var(--font-mono);"></div>
     </div>
 
     <div class="input-row">
@@ -945,6 +946,32 @@ function saveSettings() {
 // ───────── ZILLOW PARSE ─────────
 // Holds parsed tax history; if populated, overrides ZIP-based rate
 let parsedTaxData = null;
+
+function tryParseZillowUrl(input) {
+  if (!/zillow\.com/i.test(input)) return false;
+  // Match slug in patterns like:
+  //   /homedetails/<slug>/<id>_zpid/
+  //   /homes/for_sale/<slug>_rb/
+  const m = input.match(/zillow\.com\/(?:homedetails\/|homes\/[^/]*\/)?([\w-]+?)(?:\/\d+_zpid|_rb)(?:[/?]|$)/i);
+  if (!m) return false;
+  const parts = m[1].split('-').filter(Boolean);
+  // Find 2-letter state immediately before a 5-digit ZIP
+  let stateIdx = -1;
+  for (let i = 1; i < parts.length - 1; i++) {
+    if (/^[A-Z]{2}$/.test(parts[i]) && /^\d{5}$/.test(parts[i + 1])) {
+      stateIdx = i;
+      break;
+    }
+  }
+  if (stateIdx < 0) return false;
+  const zip = parts[stateIdx + 1];
+  const state = parts[stateIdx];
+  const streetCity = parts.slice(0, stateIdx).join(' ');
+  const address = `${streetCity}, ${state} ${zip}`;
+  document.getElementById('address').value = address;
+  document.getElementById('zip').value = zip;
+  return address;
+}
 
 function parseZillow() {
   const text = document.getElementById('zillowPaste').value;
@@ -1274,6 +1301,24 @@ function updateLive() {
     </div>
   `;
 }
+
+// ───────── ZILLOW URL PASTE ─────────
+document.getElementById('address').addEventListener('paste', function(e) {
+  const pasted = (e.clipboardData || window.clipboardData).getData('text').trim();
+  if (!/zillow\.com/i.test(pasted)) return;
+  e.preventDefault();
+  const result = tryParseZillowUrl(pasted);
+  const msg = document.getElementById('urlParseMsg');
+  if (result) {
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✓ Address extracted — paste listing text below for sq ft, price & taxes';
+  } else {
+    msg.style.color = 'var(--amber)';
+    msg.textContent = 'Could not parse address from link — type it manually';
+  }
+  msg.style.display = 'block';
+  setTimeout(() => { msg.style.display = 'none'; }, 6000);
+});
 
 function resetAll() {
   if (!confirm('Clear all inputs?')) return;
