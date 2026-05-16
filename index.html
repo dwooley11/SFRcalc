@@ -191,6 +191,47 @@
   .entry-status.error { color: var(--amber); }
   .entry-status.ok { color: var(--green); }
 
+  .upload-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 720px;
+    margin-top: 16px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .upload-divider::before, .upload-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    background: transparent;
+    border: 1px dashed var(--border-strong);
+    color: var(--text-dim);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .upload-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(201, 168, 107, 0.06);
+  }
+  .upload-btn:disabled { opacity: 0.5; cursor: wait; }
+
   /* ───────── PREVIEW CARD ───────── */
   .preview-wrap {
     max-width: 1100px;
@@ -874,6 +915,12 @@
     <button class="entry-btn" id="entryBtn" onclick="handleEntry()">Load <span aria-hidden="true">→</span></button>
   </div>
   <div class="entry-status" id="entryStatus"></div>
+  <input type="file" id="screenshotInput" accept="image/*" style="display:none" onchange="uploadScreenshot(this)" />
+  <div class="upload-divider"><span>or</span></div>
+  <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('screenshotInput').click()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    Upload Zillow Screenshot
+  </button>
 </section>
 
 <!-- ─── ZILLOW PREVIEW ─── -->
@@ -1045,6 +1092,13 @@
       </div>
     </div>
 
+    <div class="section-label" style="margin-top:24px;">AI Screenshot Parsing</div>
+    <div class="input-group">
+      <label for="claudeApiKey">Anthropic API Key</label>
+      <input type="password" id="claudeApiKey" placeholder="sk-ant-api03-…" autocomplete="off" />
+      <div class="help-text">Required for the "Upload Zillow Screenshot" feature. Stored locally in your browser only — never sent anywhere except the Anthropic API.</div>
+    </div>
+
     <div class="modal-footer">
       <button class="secondary" onclick="closeSettings()">Cancel</button>
       <button class="primary" onclick="saveSettings()">Save</button>
@@ -1058,6 +1112,7 @@ const DEFAULT_CONFIG = {
   insRate: 0.65,
   insMin: 850,
   taxDefault: 2.30,
+  claudeApiKey: '',
   taxByZip: {
     "76701": 2.42, "76704": 2.55, "76705": 2.38, "76706": 2.40,
     "76707": 2.45, "76708": 2.35, "76710": 2.32, "76711": 2.50,
@@ -1087,6 +1142,7 @@ function openSettings() {
   document.getElementById('insRate').value = config.insRate;
   document.getElementById('insMin').value = config.insMin;
   document.getElementById('taxDefault').value = config.taxDefault;
+  document.getElementById('claudeApiKey').value = config.claudeApiKey || '';
   renderTaxTable();
   document.getElementById('settingsModal').classList.add('open');
 }
@@ -1126,10 +1182,113 @@ function saveSettings() {
     if (z && !isNaN(r)) newTax[z] = r;
   });
   config.taxByZip = newTax;
+  config.claudeApiKey = document.getElementById('claudeApiKey').value.trim();
 
   saveConfig();
   closeSettings();
   if (currentState) calculate();
+}
+
+// ───────── SCREENSHOT UPLOAD ─────────
+async function uploadScreenshot(input) {
+  if (!input.files || !input.files[0]) return;
+
+  const status = document.getElementById('entryStatus');
+  const uploadBtn = document.getElementById('uploadBtn');
+
+  if (!config.claudeApiKey) {
+    status.className = 'entry-status error';
+    status.textContent = 'Add your Anthropic API key in Settings to use screenshot parsing.';
+    openSettings();
+    input.value = '';
+    return;
+  }
+
+  status.className = 'entry-status';
+  status.textContent = 'Parsing screenshot with AI…';
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = '⏳ Parsing…';
+
+  try {
+    const file = input.files[0];
+    const mediaType = file.type || 'image/jpeg';
+    const base64 = await fileToBase64(file);
+    const data = await parseScreenshotWithClaude(base64, mediaType);
+
+    if (data.address) document.getElementById('address').value = data.address;
+    if (data.sqft)    document.getElementById('sqft').value    = data.sqft;
+    if (data.zip)     document.getElementById('zip').value     = data.zip;
+    if (data.price)   document.getElementById('price').value   = data.price;
+
+    document.getElementById('app').style.display = 'grid';
+
+    const parts = [];
+    if (data.price) parts.push('$' + Number(data.price).toLocaleString());
+    if (data.beds)  parts.push(data.beds + ' bed');
+    if (data.baths) parts.push(data.baths + ' bath');
+    if (data.sqft)  parts.push(Number(data.sqft).toLocaleString() + ' sqft');
+
+    status.className = 'entry-status ok';
+    status.textContent = 'Screenshot parsed: ' + parts.join(' · ');
+
+    document.getElementById('app').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    status.className = 'entry-status error';
+    status.textContent = err.message || 'Failed to parse screenshot.';
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Upload Zillow Screenshot';
+    input.value = '';
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function parseScreenshotWithClaude(base64Data, mediaType) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': config.claudeApiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-calls': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 512,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64Data }
+          },
+          {
+            type: 'text',
+            text: 'Extract property listing data from this Zillow screenshot. Return ONLY a valid JSON object — no markdown, no explanation — with these exact fields (null if not visible):\n{"price":number,"beds":number,"baths":number,"sqft":number,"address":"string","zip":"5-digit string","zestimate":number_or_null,"yearBuilt":number_or_null}'
+          }
+        ]
+      }]
+    })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'Anthropic API error ' + resp.status);
+  }
+
+  const result = await resp.json();
+  const text = (result.content?.[0]?.text || '').trim();
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('Could not parse AI response. Check your API key and try again.');
+  return JSON.parse(match[0]);
 }
 
 // ───────── ENTRY HANDLER ─────────
