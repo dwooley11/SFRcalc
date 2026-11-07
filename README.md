@@ -4,6 +4,7 @@ Investment property cash flow underwriting tool. Back-solves required rent for a
 
 ## Features
 
+- **⚡ Zillow Button** — one-click import from any Zillow listing (bookmarklet on desktop / iPhone Safari, or an iOS Share Sheet shortcut). Pulls price, sq ft, beds/baths, year built, tax history, Zestimate and Rent Zestimate straight from the listing page you're viewing.
 - **Manual address entry** with optional Zillow paste-parser (pulls price, sqft, zip from copied listing text)
 - **Zillow Tax History parsing** — paste the property's tax table and the app computes the actual effective tax rate from the most recent year's bill ÷ assessed value, then applies it to your purchase price (catches the Texas post-sale reassessment bump)
 - **Auto-calculated insurance** based on a configurable rate per sq ft + minimum premium
@@ -56,7 +57,9 @@ Required Rent  = (TargetDSCR × ADS + Tax + Ins) / (12 × (1 − (Vacancy + Mgmt
 
 ## Notes on Zillow
 
-Zillow killed their public API in 2021. This app does **not** scrape Zillow — instead, you paste listing text from a Zillow page and the parser extracts what it can. If you want true API-driven pulls, look at RapidAPI Zillow scrapers (~$10–50/mo) or RentCast's free tier (50 calls/mo).
+Zillow has no public API and blocks cross-site fetches, so a static site can't load a pasted link by itself (pasting a link still fills in the address and ZIP from the URL). The **⚡ Zillow Button** gets around this by running on the Zillow page in *your* browser: it reads the listing JSON Zillow already sent to the page (`__NEXT_DATA__` / `gdpClientCache`) and opens SFRcalc with the data in the URL hash (`#zimport=…`). No server, no API key, and nothing is sent anywhere else. Open **⚡ Zillow Button** in the app for install steps.
+
+If Zillow changes its page structure, the button may need an update; the source is `sfrZillowGrab()` in `index.html`.
 
 ## License
 

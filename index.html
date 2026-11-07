@@ -860,6 +860,35 @@
 
   .modal-footer button { width: auto; padding: 10px 20px; }
 
+  .bm-link {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--bg-deep);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: grab;
+  }
+  .install-step { color: var(--text-dim); font-size: 13px; line-height: 1.8; }
+  .install-step strong { color: var(--text); }
+  .kbd {
+    font-family: var(--font-mono); font-size: 11px;
+    border: 1px solid var(--border-strong); border-radius: 4px; padding: 1px 6px;
+  }
+  .copy-btn {
+    background: transparent; border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 6px; padding: 3px 10px; font-family: var(--font-mono); font-size: 11px; cursor: pointer;
+  }
+  .copy-btn:hover { background: rgba(201, 168, 107, 0.1); }
+  .rent-ref {
+    margin-top: 10px; font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+  }
+  .rent-ref button {
+    background: transparent; border: none; color: var(--accent); cursor: pointer;
+    font-family: var(--font-mono); font-size: 11px; text-decoration: underline; padding: 0 4px;
+  }
+
   /* spinner */
   .spinner {
     display: inline-block;
@@ -902,6 +931,7 @@
   </div>
   <div class="header-right">
     <span class="header-meta" id="lastCalc">Awaiting input</span>
+    <button class="settings-toggle" onclick="openZillowButton()">⚡ Zillow Button</button>
     <button class="settings-toggle" onclick="openSettings()">Settings</button>
   </div>
 </header>
@@ -909,7 +939,7 @@
 <!-- ─── HERO / ENTRY ─── -->
 <section class="hero" id="hero">
   <h1>Analyze an Investment<br><span class="gold">in one paste.</span></h1>
-  <p class="hero-sub">Paste a Zillow link or type an address. We'll pull the listing preview and run a full cash-flow model below.</p>
+  <p class="hero-sub">Paste a Zillow link or type an address. For a one-click full import (price, sq ft, tax history, Rent Zestimate), use the <a href="#" onclick="event.preventDefault(); openZillowButton();" style="color:var(--accent);">⚡ Zillow Button</a> from any listing.</p>
   <div class="entry">
     <input type="text" id="entry" placeholder="https://www.zillow.com/homedetails/... or 1234 Main St, Waco, TX 76710" autocomplete="off" />
     <button class="entry-btn" id="entryBtn" onclick="handleEntry()">Load <span aria-hidden="true">→</span></button>
@@ -1106,7 +1136,184 @@
   </div>
 </div>
 
+<!-- Zillow Button install modal -->
+<div class="modal-backdrop" id="zbtnModal">
+  <div class="modal">
+    <h2>Zillow → SFRcalc button</h2>
+    <p class="muted">Zillow blocks other sites from reading its listings, so this button runs <em>on the Zillow page you're already viewing</em>, grabs the listing data (price, sq ft, beds/baths, tax history, Rent Zestimate, photo) and opens it here, fully loaded. No server, no API key.</p>
+
+    <div class="section-label">Desktop (Chrome / Safari / Edge)</div>
+    <p class="install-step">1. Show your bookmarks bar (<span class="kbd">⌘/Ctrl</span> + <span class="kbd">Shift</span> + <span class="kbd">B</span>).<br>
+    2. Drag this button onto the bar:</p>
+    <p style="margin:12px 0 18px;"><a class="bm-link" id="bmLink" href="#" onclick="event.preventDefault(); alert('Drag this onto your bookmarks bar — then click it while viewing a Zillow listing.');">⚡ SFRcalc</a></p>
+    <p class="install-step">3. Open any Zillow listing and click <strong>⚡ SFRcalc</strong>.</p>
+
+    <div class="section-label" style="margin-top:24px;">iPhone — Safari bookmark</div>
+    <p class="install-step">1. Tap <button class="copy-btn" onclick="copyBookmarklet(this)">Copy button code</button><br>
+    2. In Safari, bookmark any page (Share → Add Bookmark), name it <strong>SFRcalc</strong>.<br>
+    3. Bookmarks → Edit → tap SFRcalc → replace the address with the copied code → Done.<br>
+    4. On a Zillow listing <em>in Safari</em> (not the Zillow app), tap the address bar, type <strong>SFRcalc</strong>, and tap the bookmark.</p>
+
+    <div class="section-label" style="margin-top:24px;">iPhone — Share Sheet shortcut (optional)</div>
+    <p class="install-step">1. Shortcuts app → new shortcut → turn on <strong>Show in Share Sheet</strong>, receive <strong>Safari web pages</strong>.<br>
+    2. Add <strong>Run JavaScript on Web Page</strong>, delete its sample code, and paste: <button class="copy-btn" onclick="copyShortcutJs(this)">Copy shortcut code</button><br>
+    3. Add <strong>Open URLs</strong> (input = JavaScript result). Name it <strong>Send to SFRcalc</strong>.<br>
+    4. On a Zillow listing in Safari: Share → Send to SFRcalc. From the Zillow app, Share → Open in Safari first.</p>
+
+    <div class="modal-footer">
+      <button class="primary" onclick="document.getElementById('zbtnModal').classList.remove('open')">Done</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ───────── ZILLOW GRABBER (runs ON zillow.com via bookmarklet / iOS Shortcut) ─────────
+// Self-contained: serialized with .toString() into the bookmarklet, so it must not
+// reference anything outside its own body. `deliver(url)` defaults to opening SFRcalc.
+function sfrZillowGrab(target, deliver, fail) {
+  deliver = deliver || function (u) { var w = window.open(u, '_blank'); if (!w) location.href = u; };
+  fail = fail || function (m) { alert(m); };
+  if (!/(^|\.)zillow\.com$/i.test(location.hostname)) {
+    fail('SFRcalc: open a Zillow listing first, then tap this button.');
+    return;
+  }
+  var urlZpid = (location.pathname.match(/(\d+)_zpid/) || [])[1] || null;
+
+  function num(v) {
+    if (v == null || v === '') return null;
+    var n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^0-9.]/g, ''));
+    return isFinite(n) && n > 0 ? n : null;
+  }
+  function score(o) {
+    return (urlZpid && String(o.zpid) === urlZpid ? 20 : 0) + (o.taxHistory ? 4 : 0) +
+      (o.livingArea ? 2 : 0) + (o.price ? 1 : 0) + (o.rentZestimate ? 1 : 0);
+  }
+  function findProperty(roots) {
+    var best = null, seen = 0;
+    function walk(o, d) {
+      if (o == null || d > 16 || seen > 300000) return;
+      if (typeof o === 'string') {
+        var t = o.charAt(0);
+        if (o.length > 80 && (t === '{' || t === '[') && o.indexOf('zpid') > -1) {
+          try { walk(JSON.parse(o), d + 1); } catch (e) {}
+        }
+        return;
+      }
+      if (typeof o !== 'object') return;
+      seen++;
+      if (o.zpid && (o.streetAddress || o.address) &&
+          (o.price != null || o.zestimate != null || o.livingArea != null)) {
+        if (!best || score(o) > score(best)) best = o;
+      }
+      for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) walk(o[k], d + 1);
+    }
+    roots.forEach(function (r) { walk(r, 0); });
+    return best;
+  }
+  function rootsFromDoc(doc) {
+    var roots = [];
+    var nd = doc.getElementById('__NEXT_DATA__');
+    if (nd) roots.push(nd.textContent);
+    var scripts = doc.querySelectorAll('script[type="application/json"]');
+    for (var i = 0; i < scripts.length; i++) if (scripts[i] !== nd) roots.push(scripts[i].textContent);
+    return roots;
+  }
+  function build(p) {
+    var a = (p.address && typeof p.address === 'object') ? p.address : {};
+    var street = p.streetAddress || a.streetAddress || '';
+    var city = p.city || a.city || '';
+    var st = p.state || a.state || '';
+    var zip = String(p.zipcode || a.zipcode || '').slice(0, 5);
+    var rf = p.resoFacts || {};
+
+    var tax = null;
+    var th = (p.taxHistory || []).filter(function (t) { return num(t.taxPaid) && num(t.value); })
+      .sort(function (x, y) { return (y.time || 0) - (x.time || 0); })[0];
+    if (th) tax = { year: new Date(th.time).getUTCFullYear(), tax: Math.round(th.taxPaid), assessed: Math.round(th.value) };
+    else if (num(rf.taxAnnualAmount) && num(rf.taxAssessedValue))
+      tax = { year: new Date().getFullYear() - 1, tax: Math.round(num(rf.taxAnnualAmount)), assessed: Math.round(num(rf.taxAssessedValue)) };
+
+    var img = p.hiResImageLink || p.desktopWebHdpImageLink || null;
+    if (!img && p.originalPhotos && p.originalPhotos[0]) {
+      var j = p.originalPhotos[0].mixedSources && p.originalPhotos[0].mixedSources.jpeg;
+      if (j && j.length) img = j[j.length - 1].url;
+    }
+    if (!img) { var og = document.querySelector('meta[property="og:image"]'); img = og && og.content; }
+
+    return {
+      v: 1, src: 'zillow',
+      url: location.origin + location.pathname,
+      zpid: p.zpid,
+      address: [street, city, (st + ' ' + zip).trim()].filter(Boolean).join(', '),
+      zip: zip,
+      price: num(p.price) || num(p.listPrice) || null,
+      sqft: num(p.livingArea) || num(p.livingAreaValue) || num(rf.livingArea) || null,
+      beds: num(p.bedrooms), baths: num(p.bathrooms),
+      yearBuilt: num(p.yearBuilt), homeType: p.homeType || null, status: p.homeStatus || null,
+      zestimate: num(p.zestimate), rentZestimate: num(p.rentZestimate),
+      hoa: num(p.monthlyHoaFee) || num(rf.hoaFee) || null,
+      tax: tax, image: img || null,
+      desc: String(p.description || '').slice(0, 400)
+    };
+  }
+  function send(data) {
+    deliver(target + '#zimport=' + encodeURIComponent(JSON.stringify(data)));
+  }
+
+  var prop = findProperty(rootsFromDoc(document));
+  if (prop) return send(build(prop));
+
+  // Listing opened as an overlay on a search page: refetch the listing page itself (same-origin).
+  if (urlZpid && typeof fetch === 'function') {
+    fetch(location.href, { credentials: 'include' }).then(function (r) { return r.text(); }).then(function (html) {
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var p2 = findProperty(rootsFromDoc(doc));
+      if (p2) return send(build(p2));
+      fail('SFRcalc: couldn\'t find listing data on this page. Try reloading the listing and tapping again.');
+    }).catch(function () {
+      fail('SFRcalc: couldn\'t read this listing. Try reloading the page and tapping again.');
+    });
+    return;
+  }
+  fail('SFRcalc: open an individual listing (URL contains "_zpid"), then tap again.');
+}
+
+function sfrTargetUrl() {
+  return location.origin + location.pathname;
+}
+
+function buildBookmarklet() {
+  return 'javascript:' + encodeURIComponent('(' + sfrZillowGrab.toString() + ')(' + JSON.stringify(sfrTargetUrl()) + ');void 0');
+}
+
+function buildShortcutJs() {
+  return '(' + sfrZillowGrab.toString() + ')(' + JSON.stringify(sfrTargetUrl()) + ', function (u) { completion(u); }, function (m) { completion(' + JSON.stringify(sfrTargetUrl()) + ' + "#zerror=" + encodeURIComponent(m)); });';
+}
+
+function openZillowButton() {
+  document.getElementById('bmLink').setAttribute('href', buildBookmarklet());
+  document.getElementById('zbtnModal').classList.add('open');
+}
+
+async function copyText(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  const old = btn.textContent;
+  btn.textContent = '✓ Copied';
+  setTimeout(() => { btn.textContent = old; }, 1600);
+}
+function copyBookmarklet(btn) { copyText(buildBookmarklet(), btn); }
+function copyShortcutJs(btn) { copyText(buildShortcutJs(), btn); }
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 // ───────── DEFAULT CONFIG ─────────
 const DEFAULT_CONFIG = {
   insRate: 0.65,
@@ -1301,6 +1508,8 @@ async function handleEntry() {
   status.textContent = '';
 
   const isZillow = /zillow\.com/i.test(input);
+  parsedTaxData = null;
+  document.getElementById('taxSource').style.display = 'none';
 
   if (isZillow) {
     btn.disabled = true;
@@ -1333,7 +1542,7 @@ async function handleEntry() {
       renderPreview(currentListing);
       status.className = 'entry-status error';
       status.textContent = urlInfo
-        ? '⚠ Couldn\'t auto-fetch listing details (Zillow may have blocked the proxy). Address pulled from URL — fill in price & sq ft manually.'
+        ? '⚠ Zillow blocked the auto-fetch. Address pulled from the link — for full data, open the listing and tap the ⚡ SFRcalc button (see ⚡ Zillow Button above).'
         : '⚠ Couldn\'t fetch listing. Fill in the details manually below.';
       showApp();
     } finally {
@@ -1466,7 +1675,11 @@ function renderPreview(listing) {
   if (listing.beds) stats.push(`<div class="preview-stat"><b>${listing.beds}</b> Beds</div>`);
   if (listing.baths) stats.push(`<div class="preview-stat"><b>${listing.baths}</b> Baths</div>`);
   if (listing.sqft) stats.push(`<div class="preview-stat"><b>${listing.sqft.toLocaleString()}</b> Sq Ft</div>`);
-  if (listing.zip) stats.push(`<div class="preview-stat"><b>${listing.zip}</b> ZIP</div>`);
+  if (listing.zip) stats.push(`<div class="preview-stat"><b>${escapeHtml(listing.zip)}</b> ZIP</div>`);
+  if (listing.yearBuilt) stats.push(`<div class="preview-stat"><b>${listing.yearBuilt}</b> Built</div>`);
+  if (listing.rentZestimate) stats.push(`<div class="preview-stat"><b>$${Math.round(listing.rentZestimate).toLocaleString()}</b> Rent Zestimate</div>`);
+  if (listing.zestimate) stats.push(`<div class="preview-stat"><b>$${Math.round(listing.zestimate).toLocaleString()}</b> Zestimate</div>`);
+  if (listing.hoa) stats.push(`<div class="preview-stat"><b>$${Math.round(listing.hoa).toLocaleString()}/mo</b> HOA</div>`);
   document.getElementById('previewStats').innerHTML = stats.join('');
 
   document.getElementById('previewDesc').textContent = listing.description || '';
@@ -1575,7 +1788,7 @@ function calculate() {
     const content = document.getElementById('content');
     content.innerHTML = `
       <div class="property-header">
-        <div class="property-address">${address || 'New deal'}</div>
+        <div class="property-address">${escapeHtml(address) || 'New deal'}</div>
         <div class="property-meta"><span>Need sq ft, ZIP, and purchase price to run the model.</span></div>
       </div>
     `;
@@ -1615,14 +1828,19 @@ function calculate() {
 function renderResults() {
   const s = currentState;
   const content = document.getElementById('content');
+  // Anchor slider ranges on the base value so the thumb doesn't snap off it (+$6 / +$500 drift).
+  const rentLo = Math.max(25, s.baseRent - Math.round(s.baseRent * 0.5 / 25) * 25);
+  const rentHi = s.baseRent + Math.round(s.baseRent * 0.5 / 25) * 25;
+  const priceLo = s.basePrice - Math.round(s.basePrice * 0.3 / 1000) * 1000;
+  const priceHi = s.basePrice + Math.round(s.basePrice * 0.3 / 1000) * 1000;
 
   content.innerHTML = `
     <div class="property-header">
-      <div class="property-address">${s.address || 'Unnamed Property'}</div>
+      <div class="property-address">${escapeHtml(s.address) || 'Unnamed Property'}</div>
       <div class="property-meta">
         <span><strong>${s.sqft.toLocaleString()}</strong> sqft</span>
-        <span>ZIP <strong>${s.zip}</strong></span>
-        <span>Tax <strong>${s.taxRate.toFixed(3)}%</strong> <span style="color:var(--text-faint);font-size:10px;">(${s.taxSource})</span></span>
+        <span>ZIP <strong>${escapeHtml(s.zip)}</strong></span>
+        <span>Tax <strong>${s.taxRate.toFixed(3)}%</strong> <span style="color:var(--text-faint);font-size:10px;">(${escapeHtml(s.taxSource)})</span></span>
         <span>Loan <strong>$${Math.round(s.basePrice * (1 - s.downPct/100)).toLocaleString()}</strong></span>
       </div>
     </div>
@@ -1637,12 +1855,13 @@ function renderResults() {
             <div><span class="value" id="rentVal">$0</span><span class="delta" id="rentDelta"></span></div>
           </div>
         </div>
-        <input type="range" id="rentSlider" min="${Math.round(s.baseRent * 0.5)}" max="${Math.round(s.baseRent * 1.5)}" step="25" value="${Math.round(s.baseRent)}" />
+        <input type="range" id="rentSlider" min="${rentLo}" max="${rentHi}" step="25" value="${s.baseRent}" />
         <div class="slider-range">
-          <span>$${Math.round(s.baseRent * 0.5).toLocaleString()}</span>
+          <span>$${Math.round(rentLo).toLocaleString()}</span>
           <span>Required: $${Math.round(s.baseRent).toLocaleString()}</span>
-          <span>$${Math.round(s.baseRent * 1.5).toLocaleString()}</span>
+          <span>$${Math.round(rentHi).toLocaleString()}</span>
         </div>
+        ${currentListing && currentListing.rentZestimate ? `<div class="rent-ref">Zillow Rent Zestimate: $${Math.round(currentListing.rentZestimate).toLocaleString()}/mo <button onclick="setRent(${Math.round(currentListing.rentZestimate)})">use it</button></div>` : ''}
       </div>
 
       <div class="slider-card">
@@ -1652,11 +1871,11 @@ function renderResults() {
             <div><span class="value" id="priceVal">$0</span><span class="delta" id="priceDelta"></span></div>
           </div>
         </div>
-        <input type="range" id="priceSlider" min="${Math.round(s.basePrice * 0.7)}" max="${Math.round(s.basePrice * 1.3)}" step="1000" value="${Math.round(s.basePrice)}" />
+        <input type="range" id="priceSlider" min="${priceLo}" max="${priceHi}" step="1000" value="${s.basePrice}" />
         <div class="slider-range">
-          <span>$${Math.round(s.basePrice * 0.7).toLocaleString()}</span>
+          <span>$${Math.round(priceLo).toLocaleString()}</span>
           <span>Listed: $${Math.round(s.basePrice).toLocaleString()}</span>
-          <span>$${Math.round(s.basePrice * 1.3).toLocaleString()}</span>
+          <span>$${Math.round(priceHi).toLocaleString()}</span>
         </div>
       </div>
     </div>
@@ -1700,9 +1919,9 @@ function updateLive() {
   const noi = effGross - totalOpex;
   const dscr = noi / annualDebt;
   const cashFlow = noi - annualDebt;
-  const monthlyCashFlow = cashFlow / 12;
+  const monthlyCashFlow = Math.round(cashFlow / 12) || 0;
   const downPayment = price * (s.downPct / 100);
-  const coc = (cashFlow / downPayment) * 100;
+  const coc = Math.abs(cashFlow) < 0.5 ? 0 : (cashFlow / downPayment) * 100;
   const capRate = (noi / price) * 100;
 
   document.getElementById('rentVal').textContent = `$${Math.round(rent).toLocaleString()}`;
@@ -1715,9 +1934,10 @@ function updateLive() {
   document.getElementById('priceDelta').textContent = priceDelta === 0 ? '' : ` ${priceDelta > 0 ? '+' : ''}$${Math.round(priceDelta).toLocaleString()}`;
 
   let cls = 'bad', status = 'Below break-even';
-  if (dscr >= 1.25) { cls = 'good'; status = 'Strong coverage'; }
-  else if (dscr >= 1.0) { cls = 'ok'; status = 'Above break-even'; }
-  else if (dscr >= 0.9) { cls = 'ok'; status = 'Near break-even'; }
+  const dscrR = Math.round(dscr * 100) / 100;
+  if (dscrR >= 1.25) { cls = 'good'; status = 'Strong coverage'; }
+  else if (dscrR >= 1.0) { cls = 'ok'; status = 'Above break-even'; }
+  else if (dscrR >= 0.9) { cls = 'ok'; status = 'Near break-even'; }
 
   document.getElementById('dscrHero').innerHTML = `
     <div class="dscr-grid">
@@ -1731,7 +1951,7 @@ function updateLive() {
         <div class="value" style="color: ${monthlyCashFlow >= 0 ? 'var(--green)' : 'var(--red)'}">
           ${monthlyCashFlow >= 0 ? '+' : '−'}$${Math.abs(Math.round(monthlyCashFlow)).toLocaleString()}
         </div>
-        <div class="sub">$${Math.round(cashFlow).toLocaleString()} / yr</div>
+        <div class="sub">$${(Math.round(cashFlow) || 0).toLocaleString()} / yr</div>
       </div>
       <div class="metric-stat">
         <div class="label">Cash-on-Cash · Cap Rate</div>
@@ -1760,7 +1980,7 @@ function updateLive() {
     <div class="line-item">
       <span class="label">
         Property Tax (${s.taxRate.toFixed(3)}%)
-        <span class="sub">Source: ${s.taxSource}</span>
+        <span class="sub">Source: ${escapeHtml(s.taxSource)}</span>
       </span>
       <span class="value">$${Math.round(annualTax).toLocaleString()}</span>
     </div>
@@ -1819,6 +2039,81 @@ function resetAll() {
   document.getElementById('content').innerHTML = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+function setRent(v) {
+  const sl = document.getElementById('rentSlider');
+  if (!sl) return;
+  if (v < +sl.min) sl.min = Math.floor(v / 25) * 25;
+  if (v > +sl.max) sl.max = Math.ceil(v / 25) * 25;
+  sl.step = 1;
+  sl.value = v;
+  updateLive();
+}
+
+// ───────── IMPORT FROM ⚡ BUTTON (#zimport=…) ─────────
+function importFromHash() {
+  const h = location.hash || '';
+  const status = document.getElementById('entryStatus');
+  if (h.startsWith('#zerror=')) {
+    history.replaceState(null, '', location.pathname + location.search);
+    status.className = 'entry-status error';
+    status.textContent = '⚠ ' + decodeURIComponent(h.slice(8));
+    return;
+  }
+  if (!h.startsWith('#zimport=')) return;
+  let d;
+  try { d = JSON.parse(decodeURIComponent(h.slice(9))); } catch (e) {
+    status.className = 'entry-status error';
+    status.textContent = '⚠ Couldn\'t read the imported listing data.';
+    return;
+  }
+  history.replaceState(null, '', location.pathname + location.search);
+  const n = v => (typeof v === 'number' && isFinite(v) && v > 0) ? v : null;
+  const str = v => (v == null ? '' : String(v));
+
+  currentListing = {
+    url: /^https:\/\/([\w-]+\.)*zillow\.com\//i.test(str(d.url)) ? str(d.url) : null,
+    address: str(d.address), zip: str(d.zip).replace(/\D/g, '').slice(0, 5),
+    image: /^https:\/\//i.test(str(d.image)) ? str(d.image) : null,
+    description: str(d.desc),
+    price: n(d.price), sqft: n(d.sqft), beds: n(d.beds), baths: n(d.baths),
+    yearBuilt: n(d.yearBuilt), zestimate: n(d.zestimate), rentZestimate: n(d.rentZestimate), hoa: n(d.hoa)
+  };
+
+  document.getElementById('entry').value = currentListing.url || currentListing.address;
+  document.getElementById('zillowPaste').value = '';
+  renderPreview(currentListing);
+  applyListingToInputs(currentListing);
+
+  parsedTaxData = null;
+  const banner = document.getElementById('taxSource');
+  banner.style.display = 'none';
+  const t = d.tax || {};
+  if (n(t.tax) && n(t.assessed)) {
+    const rate = t.tax / t.assessed * 100;
+    if (rate > 0.3 && rate < 6) {
+      parsedTaxData = { year: n(t.year) || '', tax: t.tax, assessed: t.assessed, rate };
+      banner.style.display = 'block';
+      banner.innerHTML = `✓ Tax: <strong>${escapeHtml(parsedTaxData.year)}</strong> bill of $${Math.round(t.tax).toLocaleString()} on $${Math.round(t.assessed).toLocaleString()} → <strong>${rate.toFixed(3)}%</strong>`;
+    }
+  }
+
+  const missing = [];
+  if (!currentListing.price) missing.push('price');
+  if (!currentListing.sqft) missing.push('sq ft');
+  if (!currentListing.zip) missing.push('ZIP');
+  status.className = missing.length ? 'entry-status error' : 'entry-status ok';
+  status.textContent = missing.length
+    ? `⚠ Imported from Zillow, but missing ${missing.join(', ')} — fill in below.`
+    : `✓ Imported from Zillow${parsedTaxData ? ' (with tax history)' : ''}. Model is live below.`;
+
+  showApp();
+  calculate();
+  setTimeout(() => document.getElementById('previewWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+}
+
+window.addEventListener('hashchange', importFromHash);
+importFromHash();
 
 // Submit entry on Enter
 document.getElementById('entry').addEventListener('keydown', e => {
