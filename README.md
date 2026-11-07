@@ -57,7 +57,7 @@ Required Rent  = (TargetDSCR × ADS + Tax + Ins) / (12 × (1 − (Vacancy + Mgmt
 
 ## Notes on Zillow
 
-Zillow has no public API and blocks cross-site fetches, so a static site can't load a pasted link by itself (pasting a link still fills in the address and ZIP from the URL). The **⚡ Zillow Button** gets around this by running on the Zillow page in *your* browser: it reads the listing JSON Zillow already sent to the page (`__NEXT_DATA__` / `gdpClientCache`) and opens SFRcalc with the data in the URL hash (`#zimport=…`). No server, no API key, and nothing is sent anywhere else. Open **⚡ Zillow Button** in the app for install steps.
+Zillow has no public API and blocks cross-site fetches, so a static site can't load a pasted link by itself so the app no longer asks for a link. The **⚡ Zillow Button** gets around this by running on the Zillow page in *your* browser: it reads the listing JSON Zillow already sent to the page (`__NEXT_DATA__` / `gdpClientCache`) and opens SFRcalc with the data in the URL hash (`#zimport=…`). No server, no API key, and nothing is sent anywhere else. Setup steps for computer, iPhone/iPad (bookmark or Share Sheet shortcut) and Android are on the app's home screen.
 
 If Zillow changes its page structure, the button may need an update; the source is `sfrZillowGrab()` in `index.html`.
 
