@@ -181,7 +181,7 @@
   .entry-btn:disabled { opacity: 0.6; cursor: wait; }
 
   .entry-status {
-    margin-top: 14px;
+    margin: 14px 0;
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text-faint);
@@ -889,6 +889,46 @@
     font-family: var(--font-mono); font-size: 11px; text-decoration: underline; padding: 0 4px;
   }
 
+  .setup {
+    max-width: 720px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .setup.collapsed { display: none; }
+  .setup-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .setup-tab {
+    flex: 1; background: transparent; border: none; color: var(--text-dim);
+    padding: 14px 10px; font-family: var(--font-body); font-size: 14px; font-weight: 600;
+    cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s;
+  }
+  .setup-tab:hover { color: var(--text); }
+  .setup-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: rgba(255,255,255,0.03); }
+  .setup-pane { display: none; padding: 20px 24px 22px; }
+  .setup-pane.active { display: block; }
+  .steps { padding-left: 20px; color: var(--text-dim); font-size: 14px; line-height: 1.65; }
+  .steps li { margin-bottom: 10px; padding-left: 4px; }
+  .steps li::marker { color: var(--accent); font-family: var(--font-mono); font-size: 12px; }
+  .steps strong { color: var(--text); }
+  .sub-label {
+    font-family: var(--font-mono); font-size: 10px; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.16em; margin: 6px 0 10px;
+  }
+  .steps + .sub-label { margin-top: 18px; }
+  .step-note { display: block; font-size: 12px; color: var(--text-faint); margin-top: 4px; }
+  .step-note strong { color: var(--text-dim); }
+  .alt-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; max-width: 720px; }
+  .alt-actions .upload-btn { margin-top: 0; }
+  .link-btn {
+    background: transparent; border: none; color: var(--accent); cursor: pointer;
+    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+  }
+  .paste-details summary {
+    cursor: pointer; font-size: 12px; color: var(--text-faint); list-style: revert;
+  }
+  .paste-details summary:hover { color: var(--accent); }
+
   /* spinner */
   .spinner {
     display: inline-block;
@@ -907,7 +947,12 @@
   @media (max-width: 980px) {
     header, .hero, .preview-wrap, .app { padding-left: 24px; padding-right: 24px; }
     .hero { margin-top: 32px; }
-    .hero h1 { font-size: 48px; }
+    .hero h1 { font-size: 44px; }
+    .header-meta { display: none; }
+    header { padding-top: 20px; padding-bottom: 20px; }
+    .brand-name { font-size: 19px; }
+    .settings-toggle { padding: 7px 10px; }
+    .setup-pane { padding: 18px 16px 18px; }
     .entry { flex-direction: column; padding: 12px; }
     .entry-btn { width: 100%; padding: 12px; justify-content: center; }
     .preview-card { grid-template-columns: 1fr; }
@@ -931,26 +976,74 @@
   </div>
   <div class="header-right">
     <span class="header-meta" id="lastCalc">Awaiting input</span>
-    <button class="settings-toggle" onclick="openZillowButton()">⚡ Zillow Button</button>
+    <button class="settings-toggle" onclick="toggleSetup(true)">⚡ Button Setup</button>
     <button class="settings-toggle" onclick="openSettings()">Settings</button>
   </div>
 </header>
 
 <!-- ─── HERO / ENTRY ─── -->
 <section class="hero" id="hero">
-  <h1>Analyze an Investment<br><span class="gold">in one paste.</span></h1>
-  <p class="hero-sub">Paste a Zillow link or type an address. For a one-click full import (price, sq ft, tax history, Rent Zestimate), use the <a href="#" onclick="event.preventDefault(); openZillowButton();" style="color:var(--accent);">⚡ Zillow Button</a> from any listing.</p>
-  <div class="entry">
-    <input type="text" id="entry" placeholder="https://www.zillow.com/homedetails/... or 1234 Main St, Waco, TX 76710" autocomplete="off" />
-    <button class="entry-btn" id="entryBtn" onclick="handleEntry()">Load <span aria-hidden="true">→</span></button>
+  <h1>Analyze a Zillow listing<br><span class="gold">in one tap.</span></h1>
+  <p class="hero-sub">Add the <strong>⚡ SFRcalc</strong> button to your browser once. Then tap it on any Zillow listing and this page opens with price, sq ft, tax history and Rent Zestimate loaded and the model already run.</p>
+
+  <div class="setup" id="setup">
+    <div class="setup-tabs" role="tablist">
+      <button class="setup-tab" data-dev="desktop" onclick="showDevice('desktop')">Computer</button>
+      <button class="setup-tab" data-dev="iphone" onclick="showDevice('iphone')">iPhone / iPad</button>
+      <button class="setup-tab" data-dev="android" onclick="showDevice('android')">Android</button>
+    </div>
+
+    <div class="setup-pane" data-dev="desktop">
+      <ol class="steps">
+        <li>Show your bookmarks bar: <span class="kbd">⌘</span>/<span class="kbd">Ctrl</span> + <span class="kbd">Shift</span> + <span class="kbd">B</span>.</li>
+        <li>Drag this button onto the bar:
+          <div style="margin:12px 0 4px;"><a class="bm-link" id="bmLink" href="#" onclick="event.preventDefault(); alert('Drag this onto your bookmarks bar, then click it while viewing a Zillow listing.');">⚡ SFRcalc</a></div>
+          <span class="step-note">Works in Chrome, Edge, Safari, Firefox and Brave.</span></li>
+        <li>Open any listing on zillow.com and click <strong>⚡ SFRcalc</strong> in the bar.</li>
+      </ol>
+    </div>
+
+    <div class="setup-pane" data-dev="iphone">
+      <div class="sub-label">Option A · Safari bookmark (2 min setup)</div>
+      <ol class="steps">
+        <li><button class="copy-btn" onclick="copyBookmarklet(this)">Copy button code</button></li>
+        <li>In Safari, on any page, tap <strong>Share → Add Bookmark</strong>. Name it <strong>SFRcalc</strong> → Save.</li>
+        <li>Tap the <strong>Bookmarks</strong> icon → <strong>Edit</strong> → tap <strong>SFRcalc</strong>. Clear the address line, paste the copied code → Done.</li>
+        <li>To use: open the listing <strong>in Safari</strong>, tap the address bar, type <strong>SFRcalc</strong>, and tap the bookmark that appears.</li>
+      </ol>
+      <div class="sub-label">Option B · Share Sheet shortcut</div>
+      <ol class="steps">
+        <li><button class="copy-btn" onclick="copyShortcutJs(this)">Copy shortcut code</button></li>
+        <li>Open <strong>Shortcuts</strong> → <strong>+</strong> → add the action <strong>Run JavaScript on Web Page</strong>. Replace its sample code with the copied code.</li>
+        <li>Add the action <strong>Open URLs</strong> below it (it uses the JavaScript result automatically).</li>
+        <li>Tap the <strong>ⓘ</strong> / settings → turn on <strong>Show in Share Sheet</strong>. Name it <strong>Send to SFRcalc</strong>.</li>
+        <li>To use: on a listing in Safari, tap <strong>Share → Send to SFRcalc</strong>.</li>
+      </ol>
+      <p class="step-note">In the Zillow app? Tap <strong>Share → Open in Safari</strong> first. The button can't run inside the Zillow app.</p>
+    </div>
+
+    <div class="setup-pane" data-dev="android">
+      <ol class="steps">
+        <li><button class="copy-btn" onclick="copyBookmarklet(this)">Copy button code</button></li>
+        <li>In Chrome, tap <strong>⋮ → ☆</strong> to bookmark any page, then <strong>⋮ → Bookmarks</strong> → long-press it → <strong>Edit</strong>.</li>
+        <li>Name it <strong>SFRcalc</strong>, replace the URL with the copied code → save.</li>
+        <li>To use: open the listing in Chrome, tap the address bar, type <strong>SFRcalc</strong>, and tap the bookmark in the suggestions.</li>
+      </ol>
+      <p class="step-note">In the Zillow app? Tap <strong>Share → Chrome</strong> first.</p>
+    </div>
   </div>
+
   <div class="entry-status" id="entryStatus"></div>
-  <input type="file" id="screenshotInput" accept="image/*" style="display:none" onchange="uploadScreenshot(this)" />
-  <div class="upload-divider"><span>or</span></div>
-  <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('screenshotInput').click()">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-    Upload Zillow Screenshot
-  </button>
+
+  <div class="alt-actions">
+    <button class="upload-btn" onclick="enterManually()">Enter a deal manually</button>
+    <input type="file" id="screenshotInput" accept="image/*" style="display:none" onchange="uploadScreenshot(this)" />
+    <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('screenshotInput').click()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      Upload Zillow Screenshot
+    </button>
+    <button class="link-btn" id="setupToggle" onclick="toggleSetup()" style="display:none;">Show button setup</button>
+  </div>
 </section>
 
 <!-- ─── ZILLOW PREVIEW ─── -->
@@ -1001,15 +1094,12 @@
       </div>
     </div>
 
-    <div class="input-group">
-      <label for="zillowPaste">Paste from Zillow (optional)</label>
-      <textarea id="zillowPaste" placeholder="Paste listing details AND Tax History from Zillow for the most accurate tax rate…" rows="3"></textarea>
+    <details class="input-group paste-details">
+      <summary>Paste Zillow text instead (fallback)</summary>
+      <textarea id="zillowPaste" placeholder="Copy the listing details and the Tax History table from Zillow and paste here…" rows="3" style="margin-top:8px;"></textarea>
       <button class="secondary" onclick="parseZillow()">Auto-Parse Pasted Text</button>
-      <div class="paste-hint">
-        <strong>Pro tip:</strong> Also paste the <strong>Tax History</strong> table to compute the effective tax rate from the actual prior-year bill.
-      </div>
-      <div class="tax-banner" id="taxSource"></div>
-    </div>
+    </details>
+    <div class="tax-banner" id="taxSource" style="margin:-6px 0 18px;"></div>
 
     <div class="section-label">Financing</div>
 
@@ -1132,36 +1222,6 @@
     <div class="modal-footer">
       <button class="secondary" onclick="closeSettings()">Cancel</button>
       <button class="primary" onclick="saveSettings()">Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- Zillow Button install modal -->
-<div class="modal-backdrop" id="zbtnModal">
-  <div class="modal">
-    <h2>Zillow → SFRcalc button</h2>
-    <p class="muted">Zillow blocks other sites from reading its listings, so this button runs <em>on the Zillow page you're already viewing</em>, grabs the listing data (price, sq ft, beds/baths, tax history, Rent Zestimate, photo) and opens it here, fully loaded. No server, no API key.</p>
-
-    <div class="section-label">Desktop (Chrome / Safari / Edge)</div>
-    <p class="install-step">1. Show your bookmarks bar (<span class="kbd">⌘/Ctrl</span> + <span class="kbd">Shift</span> + <span class="kbd">B</span>).<br>
-    2. Drag this button onto the bar:</p>
-    <p style="margin:12px 0 18px;"><a class="bm-link" id="bmLink" href="#" onclick="event.preventDefault(); alert('Drag this onto your bookmarks bar — then click it while viewing a Zillow listing.');">⚡ SFRcalc</a></p>
-    <p class="install-step">3. Open any Zillow listing and click <strong>⚡ SFRcalc</strong>.</p>
-
-    <div class="section-label" style="margin-top:24px;">iPhone — Safari bookmark</div>
-    <p class="install-step">1. Tap <button class="copy-btn" onclick="copyBookmarklet(this)">Copy button code</button><br>
-    2. In Safari, bookmark any page (Share → Add Bookmark), name it <strong>SFRcalc</strong>.<br>
-    3. Bookmarks → Edit → tap SFRcalc → replace the address with the copied code → Done.<br>
-    4. On a Zillow listing <em>in Safari</em> (not the Zillow app), tap the address bar, type <strong>SFRcalc</strong>, and tap the bookmark.</p>
-
-    <div class="section-label" style="margin-top:24px;">iPhone — Share Sheet shortcut (optional)</div>
-    <p class="install-step">1. Shortcuts app → new shortcut → turn on <strong>Show in Share Sheet</strong>, receive <strong>Safari web pages</strong>.<br>
-    2. Add <strong>Run JavaScript on Web Page</strong>, delete its sample code, and paste: <button class="copy-btn" onclick="copyShortcutJs(this)">Copy shortcut code</button><br>
-    3. Add <strong>Open URLs</strong> (input = JavaScript result). Name it <strong>Send to SFRcalc</strong>.<br>
-    4. On a Zillow listing in Safari: Share → Send to SFRcalc. From the Zillow app, Share → Open in Safari first.</p>
-
-    <div class="modal-footer">
-      <button class="primary" onclick="document.getElementById('zbtnModal').classList.remove('open')">Done</button>
     </div>
   </div>
 </div>
@@ -1290,10 +1350,42 @@ function buildShortcutJs() {
   return '(' + sfrZillowGrab.toString() + ')(' + JSON.stringify(sfrTargetUrl()) + ', function (u) { completion(u); }, function (m) { completion(' + JSON.stringify(sfrTargetUrl()) + ' + "#zerror=" + encodeURIComponent(m)); });';
 }
 
-function openZillowButton() {
-  document.getElementById('bmLink').setAttribute('href', buildBookmarklet());
-  document.getElementById('zbtnModal').classList.add('open');
+function detectDevice() {
+  const ua = navigator.userAgent || '';
+  if (/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iphone';
+  if (/Android/i.test(ua)) return 'android';
+  return 'desktop';
 }
+
+function showDevice(dev) {
+  document.querySelectorAll('.setup-tab').forEach(t => t.classList.toggle('active', t.dataset.dev === dev));
+  document.querySelectorAll('.setup-pane').forEach(p => p.classList.toggle('active', p.dataset.dev === dev));
+}
+
+function toggleSetup(forceOpen) {
+  const setup = document.getElementById('setup');
+  const open = forceOpen === true ? true : setup.classList.contains('collapsed');
+  setup.classList.toggle('collapsed', !open);
+  document.getElementById('setupToggle').textContent = open ? 'Hide button setup' : 'Show button setup';
+  if (open) document.getElementById('hero').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function collapseSetup() {
+  document.getElementById('setup').classList.add('collapsed');
+  const t = document.getElementById('setupToggle');
+  t.style.display = 'inline-flex';
+  t.textContent = 'Show button setup';
+}
+
+function enterManually() {
+  currentListing = null;
+  showApp();
+  document.getElementById('app').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('address').focus({ preventScroll: true });
+}
+
+document.getElementById('bmLink').setAttribute('href', buildBookmarklet());
+showDevice(detectDevice());
 
 async function copyText(text, btn) {
   try {
@@ -1437,6 +1529,7 @@ async function uploadScreenshot(input) {
 
     status.className = 'entry-status ok';
     status.textContent = 'Screenshot parsed: ' + parts.join(' · ');
+    collapseSetup();
 
     document.getElementById('app').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) {
@@ -1498,159 +1591,9 @@ async function parseScreenshotWithClaude(base64Data, mediaType) {
   return JSON.parse(match[0]);
 }
 
-// ───────── ENTRY HANDLER ─────────
-async function handleEntry() {
-  const input = document.getElementById('entry').value.trim();
-  if (!input) return;
-  const btn = document.getElementById('entryBtn');
-  const status = document.getElementById('entryStatus');
-  status.className = 'entry-status';
-  status.textContent = '';
-
-  const isZillow = /zillow\.com/i.test(input);
-  parsedTaxData = null;
-  document.getElementById('taxSource').style.display = 'none';
-
-  if (isZillow) {
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Loading';
-    status.textContent = 'Fetching Zillow listing…';
-
-    // Parse URL first for instant address/zip
-    const urlInfo = parseZillowUrl(input);
-    if (urlInfo) {
-      document.getElementById('address').value = urlInfo.address;
-      document.getElementById('zip').value = urlInfo.zip;
-    }
-
-    try {
-      const listing = await fetchZillowListing(input);
-      currentListing = { ...listing, url: input };
-      renderPreview(currentListing);
-      applyListingToInputs(currentListing);
-      status.className = 'entry-status ok';
-      status.textContent = '✓ Listing loaded. Adjust inputs and Calculate below.';
-      showApp();
-      calculate();
-    } catch (err) {
-      // Fall back to URL-only preview
-      currentListing = {
-        url: input,
-        address: urlInfo?.address || 'Zillow Listing',
-        image: null
-      };
-      renderPreview(currentListing);
-      status.className = 'entry-status error';
-      status.textContent = urlInfo
-        ? '⚠ Zillow blocked the auto-fetch. Address pulled from the link — for full data, open the listing and tap the ⚡ SFRcalc button (see ⚡ Zillow Button above).'
-        : '⚠ Couldn\'t fetch listing. Fill in the details manually below.';
-      showApp();
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = 'Load <span aria-hidden="true">→</span>';
-    }
-  } else {
-    // Plain address
-    document.getElementById('address').value = input;
-    const zipMatch = input.match(/\b(\d{5})\b/);
-    if (zipMatch) document.getElementById('zip').value = zipMatch[1];
-    status.className = 'entry-status ok';
-    status.textContent = 'Address set. Fill in sq ft & price below to underwrite.';
-    showApp();
-  }
-}
-
 function showApp() {
   document.getElementById('previewWrap').style.display = currentListing ? 'block' : 'none';
   document.getElementById('app').style.display = 'grid';
-}
-
-// ───────── ZILLOW URL PARSER ─────────
-function parseZillowUrl(input) {
-  const m = input.match(/zillow\.com\/(?:homedetails\/|homes\/[^/]*\/)?([\w-]+?)(?:\/\d+_zpid|_rb)(?:[/?]|$)/i);
-  if (!m) return null;
-  const parts = m[1].split('-').filter(Boolean);
-  let stateIdx = -1;
-  for (let i = 1; i < parts.length - 1; i++) {
-    if (/^[A-Z]{2}$/i.test(parts[i]) && /^\d{5}$/.test(parts[i + 1])) {
-      stateIdx = i; break;
-    }
-  }
-  if (stateIdx < 0) return null;
-  const zip = parts[stateIdx + 1];
-  const state = parts[stateIdx].toUpperCase();
-  const streetCity = parts.slice(0, stateIdx).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-  return { address: `${streetCity}, ${state} ${zip}`, zip, state };
-}
-
-// ───────── ZILLOW FETCH (via CORS proxy) ─────────
-async function fetchZillowListing(url) {
-  const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
-  const resp = await fetch(proxy);
-  if (!resp.ok) throw new Error('Proxy fetch failed');
-  const data = await resp.json();
-  const html = data.contents;
-  if (!html || html.length < 500) throw new Error('Empty response');
-
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const og = (prop) => doc.querySelector(`meta[property="og:${prop}"]`)?.getAttribute('content');
-  const meta = (name) => doc.querySelector(`meta[name="${name}"]`)?.getAttribute('content');
-
-  const image = og('image') || meta('twitter:image');
-  const title = og('title') || doc.title;
-  const description = og('description') || meta('description') || '';
-
-  let price, beds, baths, sqft, addr, zip;
-
-  // Try JSON-LD blocks
-  doc.querySelectorAll('script[type="application/ld+json"]').forEach(s => {
-    try {
-      const obj = JSON.parse(s.textContent);
-      const items = Array.isArray(obj) ? obj : [obj];
-      items.forEach(item => {
-        if (item.offers?.price) price = price || parseFloat(item.offers.price);
-        if (item.address) {
-          const a = item.address;
-          if (a.streetAddress) addr = addr || [a.streetAddress, a.addressLocality, a.addressRegion, a.postalCode].filter(Boolean).join(', ');
-          if (a.postalCode) zip = zip || String(a.postalCode);
-        }
-        if (item.numberOfRooms) beds = beds || parseFloat(item.numberOfRooms);
-        if (item.numberOfBedrooms) beds = beds || parseFloat(item.numberOfBedrooms);
-        if (item.numberOfBathroomsTotal) baths = baths || parseFloat(item.numberOfBathroomsTotal);
-        if (item.floorSize?.value) sqft = sqft || parseFloat(item.floorSize.value);
-      });
-    } catch(e) {}
-  });
-
-  // Regex fallbacks on raw HTML (Zillow embeds a lot of state JSON)
-  if (!price) {
-    const m = html.match(/"price"\s*:\s*(\d{4,9})\b/);
-    if (m) price = parseInt(m[1]);
-  }
-  if (!beds) {
-    const m = html.match(/"bedrooms?"\s*:\s*(\d+(?:\.\d+)?)/i);
-    if (m) beds = parseFloat(m[1]);
-  }
-  if (!baths) {
-    const m = html.match(/"bathrooms?"\s*:\s*(\d+(?:\.\d+)?)/i)
-          || html.match(/"bathroomsTotalInteger"\s*:\s*(\d+)/i);
-    if (m) baths = parseFloat(m[1]);
-  }
-  if (!sqft) {
-    const m = html.match(/"livingArea"\s*:\s*(\d{3,6})/i)
-          || html.match(/"livingAreaValue"\s*:\s*(\d{3,6})/i);
-    if (m) sqft = parseInt(m[1]);
-  }
-  if (!addr) {
-    // Fall back to OG title (often "1234 Main St, City, ST 76710 | Zillow")
-    if (title) addr = title.replace(/\s*\|\s*Zillow.*$/i, '').trim();
-  }
-  if (!zip && addr) {
-    const m = addr.match(/\b(\d{5})\b/);
-    if (m) zip = m[1];
-  }
-
-  return { image, title, description, price, beds, baths, sqft, address: addr, zip };
 }
 
 // ───────── PREVIEW RENDER ─────────
@@ -2016,7 +1959,7 @@ function updateLive() {
 
 function resetAll() {
   if (!confirm('Clear all inputs and start over?')) return;
-  ['address','sqft','zip','price','zillowPaste','entry'].forEach(id => {
+  ['address','sqft','zip','price','zillowPaste'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -2032,6 +1975,8 @@ function resetAll() {
   document.getElementById('entryStatus').textContent = '';
   document.getElementById('previewWrap').style.display = 'none';
   document.getElementById('app').style.display = 'none';
+  document.getElementById('setup').classList.remove('collapsed');
+  document.getElementById('setupToggle').style.display = 'none';
   parsedTaxData = null;
   currentState = null;
   currentListing = null;
@@ -2080,7 +2025,6 @@ function importFromHash() {
     yearBuilt: n(d.yearBuilt), zestimate: n(d.zestimate), rentZestimate: n(d.rentZestimate), hoa: n(d.hoa)
   };
 
-  document.getElementById('entry').value = currentListing.url || currentListing.address;
   document.getElementById('zillowPaste').value = '';
   renderPreview(currentListing);
   applyListingToInputs(currentListing);
@@ -2107,6 +2051,7 @@ function importFromHash() {
     ? `⚠ Imported from Zillow, but missing ${missing.join(', ')} — fill in below.`
     : `✓ Imported from Zillow${parsedTaxData ? ' (with tax history)' : ''}. Model is live below.`;
 
+  collapseSetup();
   showApp();
   calculate();
   setTimeout(() => document.getElementById('previewWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
@@ -2115,10 +2060,6 @@ function importFromHash() {
 window.addEventListener('hashchange', importFromHash);
 importFromHash();
 
-// Submit entry on Enter
-document.getElementById('entry').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); handleEntry(); }
-});
 </script>
 </body>
 </html>
