@@ -11,6 +11,7 @@ Investment property cash flow underwriting tool. Everything updates live as you 
 - **ZIP-code-driven property tax rates** as a fallback when Zillow tax data isn't pasted, with editable lookup table (pre-loaded with Central Texas / McLennan County rates)
 - **Hit Target DSCR panel** — three answers for your target (saved between visits): rent needed, cash down needed, and max price, each holding the other two levers where they are, with one-tap Apply
 - **Cash Down + Down %** — starts at 25%; type an exact cash amount to lock it as price moves, or a % to scale with price
+- **Save Report as PDF** — one-page report with listing photo, purchase & financing math, assumptions, target-DSCR solves, and a monthly/annual income & cash-flow projection
 - **Live sliders** for price and rent — DSCR, cash flow, cap rate, and CoC update in real time
 - **Fully adjustable financing** — cash down / down %, rate, term
 - **Operating expense controls** — vacancy, management, maintenance, CapEx reserve

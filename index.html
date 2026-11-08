@@ -1003,6 +1003,39 @@
     .metric-stat { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 16px; }
     .breakdown, .sliders, .solve-grid { grid-template-columns: 1fr; }
   }
+
+  /* ───────── PDF REPORT (print-only) ───────── */
+  .pdf-btn { width: 100%; margin-top: 22px; }
+  #printReport { display: none; }
+  @media print {
+    @page { size: letter; margin: 0.5in; }
+    body > *:not(#printReport) { display: none !important; }
+    html, body { background: #fff !important; background-image: none !important; color: #1a1a1a; }
+    #printReport { display: block; font-family: var(--font-body); font-size: 11px; line-height: 1.4; color: #1a1a1a; }
+    #printReport * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .rp-head { display: flex; gap: 18px; align-items: stretch; border-bottom: 2px solid #1a3d2e; padding-bottom: 14px; margin-bottom: 14px; }
+    .rp-img { width: 2.6in; height: 1.75in; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+    .rp-title { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+    .rp-brand { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #8a7346; }
+    .rp-addr { font-family: var(--font-display); font-size: 22px; line-height: 1.15; margin: 4px 0 6px; color: #1a3d2e; }
+    .rp-facts { color: #555; font-size: 11px; }
+    .rp-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+    .rp-kpi { border: 1px solid #d8d8d8; border-radius: 6px; padding: 8px 10px; }
+    .rp-kpi .k { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: #777; }
+    .rp-kpi .v { font-family: var(--font-display); font-size: 20px; color: #1a3d2e; }
+    .rp-kpi .v.neg { color: #b03a2e; }
+    .rp-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .rp-sec h3 { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #8a7346; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin: 0 0 4px; font-weight: 600; }
+    .rp-sec + .rp-sec { margin-top: 14px; }
+    .rp-sec table { width: 100%; border-collapse: collapse; }
+    .rp-sec td, .rp-sec th { padding: 3px 0; text-align: right; font-variant-numeric: tabular-nums; }
+    .rp-sec th { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: #888; font-weight: 500; }
+    .rp-sec td:first-child, .rp-sec th:first-child { text-align: left; color: #333; }
+    .rp-sec td .note { color: #888; font-size: 9px; }
+    .rp-sec tr.tot td { border-top: 1px solid #1a3d2e; font-weight: 700; padding-top: 4px; }
+    .rp-sec tr.neg td:not(:first-child) { color: #b03a2e; }
+    .rp-foot { margin-top: 16px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 9px; color: #888; }
+  }
 </style>
 </head>
 <body>
@@ -1946,6 +1979,8 @@ function buildShell(p) {
       <div class="breakdown-card"><h3>Income</h3><div id="incomeLines"></div></div>
       <div class="breakdown-card"><h3>Expenses & Debt Service</h3><div id="expenseLines"></div></div>
     </div>
+
+    <button class="primary pdf-btn" onclick="saveReportPdf()">Save Report as PDF</button>
   `;
 
   $('rentSlider').addEventListener('input', e => { rentVal = parseFloat(e.target.value); recalc(); });
@@ -2122,6 +2157,116 @@ function resetAll() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+
+// ───────── SAVE REPORT AS PDF ─────────
+// Builds a print-only one-page report, then opens the system print sheet
+// (iPhone: Share → Save to Files; desktop: Destination → Save as PDF).
+function saveReportPdf() {
+  const p = readInputs();
+  if (!ui || !(p.price > 0)) return;
+  const { m, needRent, needDown, maxPrice } = solve(p, rentVal);
+  const L = currentListing || {};
+  const mo = v => fmt(v / 12);
+  const pct = v => `${(+v).toFixed(2)}%`;
+  const ded = v => Math.round(Math.abs(v)) === 0 ? '$0' : `−${fmt(Math.abs(v))}`;
+  const neg = v => v < 0 ? `−${fmt(Math.abs(v))}` : fmt(v);
+  const row = (label, monthly, annual, cls = '', note = '') =>
+    `<tr class="${cls}"><td>${label}${note ? ` <span class="note">${note}</span>` : ''}</td><td>${monthly}</td><td>${annual}</td></tr>`;
+
+  const facts = [
+    L.beds && `${L.beds} bd`, L.baths && `${L.baths} ba`, `${p.sqft.toLocaleString()} sqft`,
+    L.yearBuilt && `Built ${L.yearBuilt}`, `ZIP ${escapeHtml(p.zip)}`
+  ].filter(Boolean).join(' · ');
+  const listed = ui.listPrice && Math.abs(ui.listPrice - p.price) >= 1 ? ` · Listed ${fmt(ui.listPrice)}` : '';
+  const dscrTxt = isFinite(m.dscr) ? `${m.dscr.toFixed(2)}x` : '∞';
+
+  $('printReport').innerHTML = `
+    <div class="rp-head">
+      ${L.image ? `<img class="rp-img" id="rpImg" src="${escapeHtml(L.image)}" alt="">` : ''}
+      <div class="rp-title">
+        <div>
+          <div class="rp-brand">SFRcalc · Rental Underwriting Report</div>
+          <div class="rp-addr">${escapeHtml(p.address) || 'Investment Property'}</div>
+          <div class="rp-facts">${facts}</div>
+        </div>
+        <div class="rp-facts">Offer ${fmt(p.price)}${listed} · Prepared ${new Date().toLocaleDateString()}</div>
+      </div>
+    </div>
+
+    <div class="rp-kpis">
+      <div class="rp-kpi"><div class="k">DSCR</div><div class="v ${m.dscr < 1 ? 'neg' : ''}">${dscrTxt}</div></div>
+      <div class="rp-kpi"><div class="k">Cash Flow / mo</div><div class="v ${m.cashFlow < 0 ? 'neg' : ''}">${neg(m.cashFlow / 12)}</div></div>
+      <div class="rp-kpi"><div class="k">Cash-on-Cash</div><div class="v ${m.coc < 0 ? 'neg' : ''}">${m.coc.toFixed(1)}%</div></div>
+      <div class="rp-kpi"><div class="k">Cap Rate</div><div class="v">${m.capRate.toFixed(2)}%</div></div>
+    </div>
+
+    <div class="rp-cols">
+      <div>
+        <div class="rp-sec">
+          <h3>Purchase & Financing</h3>
+          <table>
+            <tr><td>Purchase price</td><td>${fmt(p.price)}</td></tr>
+            <tr><td>Cash down <span class="note">${p.downPct.toFixed(1)}%</span></td><td>${fmt(m.downPayment)}</td></tr>
+            <tr class="tot"><td>Loan amount</td><td>${fmt(m.loanAmt)}</td></tr>
+            <tr><td>Rate / term</td><td>${p.rate}% · ${p.term} yr</td></tr>
+            <tr><td>Monthly P&amp;I</td><td>${fmt(m.monthlyPI)}</td></tr>
+            <tr><td>Annual debt service</td><td>${fmt(m.annualDebt)}</td></tr>
+          </table>
+        </div>
+        <div class="rp-sec">
+          <h3>Assumptions</h3>
+          <table>
+            <tr><td>Property tax <span class="note">${escapeHtml(p.taxSource)}</span></td><td>${p.taxRate.toFixed(3)}%</td></tr>
+            <tr><td>Insurance <span class="note">$${config.insRate}/sqft, $${config.insMin} min</span></td><td>${fmt(m.annualIns)}/yr</td></tr>
+            <tr><td>Vacancy · Mgmt</td><td>${p.vacancy}% · ${p.mgmt}%</td></tr>
+            <tr><td>Maintenance · CapEx</td><td>${p.maint}% · ${p.capex}%</td></tr>
+            ${L.rentZestimate ? `<tr><td>Zillow Rent Zestimate</td><td>${fmt(L.rentZestimate)}/mo</td></tr>` : ''}
+          </table>
+        </div>
+        <div class="rp-sec">
+          <h3>To Hit ${p.target.toFixed(2)}x DSCR <span style="text-transform:none;letter-spacing:0;color:#999;">(one lever at a time)</span></h3>
+          <table>
+            <tr><td>Rent needed</td><td>${needRent == null ? 'n/a' : fmt(needRent) + '/mo'}</td></tr>
+            <tr><td>Cash down needed</td><td>${needDown == null ? 'n/a' : `${fmt(needDown)} (${(needDown / p.price * 100).toFixed(1)}%)`}</td></tr>
+            <tr><td>Max purchase price</td><td>${maxPrice == null ? 'n/a' : fmt(maxPrice)}</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="rp-sec">
+        <h3>Income & Cash Flow Projection</h3>
+        <table>
+          <tr><th></th><th>Monthly</th><th>Annual</th></tr>
+          ${row('Gross rent', fmt(rentVal), fmt(m.gross))}
+          ${row('Vacancy', ded(m.vacancyLoss / 12), ded(m.vacancyLoss), '', `${p.vacancy}%`)}
+          ${row('Effective gross income', mo(m.effGross), fmt(m.effGross), 'tot')}
+          ${row('Property tax', ded(m.annualTax / 12), ded(m.annualTax))}
+          ${row('Insurance', ded(m.annualIns / 12), ded(m.annualIns))}
+          ${row('Management', ded(m.mgmtCost / 12), ded(m.mgmtCost), '', `${p.mgmt}%`)}
+          ${row('Maintenance', ded(m.maintCost / 12), ded(m.maintCost), '', `${p.maint}%`)}
+          ${row('CapEx reserve', ded(m.capexCost / 12), ded(m.capexCost), '', `${p.capex}%`)}
+          ${row('Net operating income', neg(m.noi / 12), neg(m.noi), 'tot')}
+          ${row('Debt service (P&amp;I)', ded(m.monthlyPI), ded(m.annualDebt))}
+          ${row('Cash flow', neg(m.cashFlow / 12), neg(m.cashFlow), 'tot' + (m.cashFlow < 0 ? ' neg' : ''))}
+        </table>
+      </div>
+    </div>
+
+    <div class="rp-foot">DSCR = NOI ÷ annual debt service. Estimates only; verify taxes, insurance, and rent comps before making an offer.${L.url ? ` · ${escapeHtml(L.url)}` : ''}</div>
+  `;
+
+  const oldTitle = document.title;
+  document.title = `${(p.address || 'Property').replace(/[\\/:*?"<>|]/g, '')} - SFRcalc Report`;  // becomes the PDF filename
+  const go = () => { window.print(); setTimeout(() => { document.title = oldTitle; }, 1000); };
+  const img = $('rpImg');
+  if (img && !img.complete) {
+    let done = false;
+    const once = () => { if (!done) { done = true; go(); } };
+    img.onload = img.onerror = once;
+    setTimeout(once, 2500);   // don't hang if the photo is slow
+  } else go();
+}
+
 // ───────── IMPORT FROM ⚡ BUTTON (#zimport=…) ─────────
 function importFromHash() {
   const h = location.hash || '';
@@ -2189,5 +2334,6 @@ window.addEventListener('hashchange', importFromHash);
 importFromHash();
 
 </script>
+<div id="printReport"></div>
 </body>
 </html>
