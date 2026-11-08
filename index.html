@@ -695,6 +695,46 @@
     margin-top: 8px;
   }
 
+  /* ───────── SOLVE FOR TARGET ───────── */
+  .solve-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 22px;
+  }
+  .solve-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    flex-wrap: wrap; gap: 8px; margin-bottom: 14px;
+  }
+  .solve-head .label {
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.15em; color: var(--text-faint);
+  }
+  .solve-head .target { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+  .solve-head .target input {
+    width: 64px; padding: 3px 6px; font-family: var(--font-mono); font-size: 12px; margin: 0 2px;
+    background: rgba(0,0,0,0.25); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+  }
+  .solve-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .solve-tile { border-left: 2px solid var(--accent); padding-left: 14px; }
+  .solve-tile .t-label {
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--text-faint); margin-bottom: 4px;
+  }
+  .solve-tile .t-value {
+    font-family: var(--font-display); font-size: 24px; font-weight: 500; letter-spacing: -0.02em;
+  }
+  .solve-tile .t-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+  .solve-tile .t-delta.up { color: var(--red); }
+  .solve-tile .t-delta.down { color: var(--green); }
+  .solve-tile button {
+    margin-top: 8px; background: transparent; border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 6px; padding: 4px 10px; font-family: var(--font-mono); font-size: 11px; cursor: pointer;
+  }
+  .solve-tile button:hover { background: rgba(201, 168, 107, 0.1); }
+  .solve-tile button:disabled { opacity: 0.35; cursor: default; }
+
   /* ───────── BREAKDOWN ───────── */
   .breakdown {
     display: grid;
@@ -961,7 +1001,7 @@
     .sidebar { position: relative; top: 0; }
     .dscr-grid { grid-template-columns: 1fr; gap: 16px; }
     .metric-stat { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 16px; }
-    .breakdown, .sliders { grid-template-columns: 1fr; }
+    .breakdown, .sliders, .solve-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -1761,7 +1801,8 @@ function calculate() {
   currentState = {
     address, sqft, zip, basePrice: price, baseRent: requiredMonthlyRent,
     downPct, rate, term, vacancy, mgmt, maint, capex,
-    taxRate, taxSource, annualTax, annualIns, monthlyPI, annualDebt
+    taxRate, taxSource, annualTax, annualIns, monthlyPI, annualDebt,
+    targetDscr: targetDscr > 0 ? targetDscr : 1
   };
 
   renderResults();
@@ -1784,7 +1825,7 @@ function renderResults() {
         <span><strong>${s.sqft.toLocaleString()}</strong> sqft</span>
         <span>ZIP <strong>${escapeHtml(s.zip)}</strong></span>
         <span>Tax <strong>${s.taxRate.toFixed(3)}%</strong> <span style="color:var(--text-faint);font-size:10px;">(${escapeHtml(s.taxSource)})</span></span>
-        <span>Loan <strong>$${Math.round(s.basePrice * (1 - s.downPct/100)).toLocaleString()}</strong></span>
+        <span>Loan <strong id="loanMeta">$${Math.round(s.basePrice * (1 - s.downPct/100)).toLocaleString()}</strong></span>
       </div>
     </div>
 
@@ -1800,9 +1841,9 @@ function renderResults() {
         </div>
         <input type="range" id="rentSlider" min="${rentLo}" max="${rentHi}" step="25" value="${s.baseRent}" />
         <div class="slider-range">
-          <span>$${Math.round(rentLo).toLocaleString()}</span>
+          <span id="rentLoLbl">$${Math.round(rentLo).toLocaleString()}</span>
           <span>Required: $${Math.round(s.baseRent).toLocaleString()}</span>
-          <span>$${Math.round(rentHi).toLocaleString()}</span>
+          <span id="rentHiLbl">$${Math.round(rentHi).toLocaleString()}</span>
         </div>
         ${currentListing && currentListing.rentZestimate ? `<div class="rent-ref">Zillow Rent Zestimate: $${Math.round(currentListing.rentZestimate).toLocaleString()}/mo <button onclick="setRent(${Math.round(currentListing.rentZestimate)})">use it</button></div>` : ''}
       </div>
@@ -1816,10 +1857,21 @@ function renderResults() {
         </div>
         <input type="range" id="priceSlider" min="${priceLo}" max="${priceHi}" step="1000" value="${s.basePrice}" />
         <div class="slider-range">
-          <span>$${Math.round(priceLo).toLocaleString()}</span>
+          <span id="priceLoLbl">$${Math.round(priceLo).toLocaleString()}</span>
           <span>Listed: $${Math.round(s.basePrice).toLocaleString()}</span>
-          <span>$${Math.round(priceHi).toLocaleString()}</span>
+          <span id="priceHiLbl">$${Math.round(priceHi).toLocaleString()}</span>
         </div>
+      </div>
+    </div>
+
+    <div class="solve-panel">
+      <div class="solve-head">
+        <div class="label">Solve for Target DSCR · at this rent</div>
+        <div class="target">Target <input type="number" id="solveTarget" step="0.05" min="0.5" value="${s.targetDscr.toFixed(2)}" />x</div>
+      </div>
+      <div class="solve-grid">
+        <div class="solve-tile" id="solveDown"></div>
+        <div class="solve-tile" id="solvePrice"></div>
       </div>
     </div>
 
@@ -1837,7 +1889,65 @@ function renderResults() {
 
   document.getElementById('rentSlider').addEventListener('input', updateLive);
   document.getElementById('priceSlider').addEventListener('input', updateLive);
+  document.getElementById('solveTarget').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    if (v > 0) {
+      currentState.targetDscr = v;
+      document.getElementById('targetDscr').value = v;
+      updateLive();
+    }
+  });
 
+  updateLive();
+}
+
+// Given the rent/price on the sliders, back-solve what it takes to hit target DSCR.
+// NOI(P) = rentNOI − P·taxRate   (rentNOI = EGI − variable opex − insurance)
+// Debt per $ of loan per year: k = pmt(1, rate, term) × 12
+function solveTarget(rent, price) {
+  const s = currentState;
+  const target = s.targetDscr;
+  const gross = rent * 12;
+  const rentNOI = gross * (1 - (s.vacancy + s.mgmt + s.maint + s.capex) / 100) - s.annualIns;
+  const t = s.taxRate / 100;
+  const k = pmt(1, s.rate, s.term) * 12;
+  const d = s.downPct / 100;
+
+  // 1) Cash down needed at the current price
+  const noiAtPrice = rentNOI - price * t;
+  let down = null;
+  if (noiAtPrice > 0) {
+    const maxLoan = noiAtPrice / target / k;
+    down = Math.max(0, price - maxLoan);
+  }
+
+  // 2) Max purchase price at the current down %
+  //    rentNOI − P·t = target·k·(1−d)·P  →  P = rentNOI / (t + target·k·(1−d))
+  const maxPrice = rentNOI > 0 ? rentNOI / (t + target * k * (1 - d)) : null;
+
+  return { target, down, maxPrice, curDown: price * d };
+}
+
+function applySolvedDown() {
+  const s = currentState;
+  const price = parseFloat(document.getElementById('priceSlider').value);
+  const r = solveTarget(parseFloat(document.getElementById('rentSlider').value), price);
+  if (r.down == null) return;
+  const pct = Math.min(100, Math.ceil(r.down / price * 1000) / 10); // round up to 0.1% so we don't land under target
+  s.downPct = pct;
+  document.getElementById('downPct').value = pct;
+  updateLive();
+}
+
+function applySolvedPrice() {
+  const r = solveTarget(parseFloat(document.getElementById('rentSlider').value),
+                        parseFloat(document.getElementById('priceSlider').value));
+  if (r.maxPrice == null) return;
+  const sl = document.getElementById('priceSlider');
+  const v = Math.floor(r.maxPrice / 1000) * 1000; // round down to stay at/above target
+  if (v < +sl.min) sl.min = v;
+  if (v > +sl.max) sl.max = v;
+  sl.value = v;
   updateLive();
 }
 
@@ -1875,6 +1985,45 @@ function updateLive() {
 
   const priceDelta = price - s.basePrice;
   document.getElementById('priceDelta').textContent = priceDelta === 0 ? '' : ` ${priceDelta > 0 ? '+' : ''}$${Math.round(priceDelta).toLocaleString()}`;
+
+  const rs = document.getElementById('rentSlider'), ps = document.getElementById('priceSlider');
+  document.getElementById('rentLoLbl').textContent = `$${Math.round(+rs.min).toLocaleString()}`;
+  document.getElementById('rentHiLbl').textContent = `$${Math.round(+rs.max).toLocaleString()}`;
+  document.getElementById('priceLoLbl').textContent = `$${Math.round(+ps.min).toLocaleString()}`;
+  document.getElementById('priceHiLbl').textContent = `$${Math.round(+ps.max).toLocaleString()}`;
+  document.getElementById('loanMeta').textContent = `$${Math.round(loanAmt).toLocaleString()}`;
+
+  const sv = solveTarget(rent, price);
+  const fmt = v => `$${Math.round(v).toLocaleString()}`;
+  const delta = (v, cur) => {
+    const dd = Math.round(v - cur);
+    if (Math.abs(dd) < 1) return '<span class="t-delta">matches current</span>';
+    return `<span class="t-delta ${dd > 0 ? 'up' : 'down'}">${dd > 0 ? '+' : '−'}${fmt(Math.abs(dd))} vs now</span>`;
+  };
+  // For price, paying more is "good" news (green), paying less needed is a cut (red)
+  const priceDelta2 = (v, cur) => {
+    const dd = Math.round(v - cur);
+    if (Math.abs(dd) < 1) return '<span class="t-delta">matches current</span>';
+    return `<span class="t-delta ${dd > 0 ? 'down' : 'up'}">${dd > 0 ? '+' : '−'}${fmt(Math.abs(dd))} vs now</span>`;
+  };
+
+  document.getElementById('solveDown').innerHTML = sv.down == null
+    ? `<div class="t-label">Cash down needed @ ${fmt(price)}</div>
+       <div class="t-value" style="color:var(--red)">Not reachable</div>
+       <div class="t-sub">NOI is negative at this rent — no loan size hits ${sv.target.toFixed(2)}x</div>`
+    : `<div class="t-label">Cash down needed @ ${fmt(price)}</div>
+       <div class="t-value">${fmt(sv.down)} <span style="font-size:15px;color:var(--text-faint);">${(sv.down / price * 100).toFixed(1)}%</span></div>
+       <div class="t-sub">${delta(sv.down, sv.curDown)} · loan ${fmt(price - sv.down)}</div>
+       <button onclick="applySolvedDown()" ${Math.abs(sv.down - sv.curDown) < 1 ? 'disabled' : ''}>Apply down %</button>`;
+
+  document.getElementById('solvePrice').innerHTML = sv.maxPrice == null
+    ? `<div class="t-label">Max price @ ${s.downPct}% down</div>
+       <div class="t-value" style="color:var(--red)">Not reachable</div>
+       <div class="t-sub">Rent doesn't cover insurance + operating costs</div>`
+    : `<div class="t-label">Max price @ ${s.downPct}% down</div>
+       <div class="t-value">${fmt(sv.maxPrice)}</div>
+       <div class="t-sub">${priceDelta2(sv.maxPrice, price)} · ${fmt(sv.maxPrice * s.downPct / 100)} down</div>
+       <button onclick="applySolvedPrice()" ${Math.abs(sv.maxPrice - price) < 1000 ? 'disabled' : ''}>Apply price</button>`;
 
   let cls = 'bad', status = 'Below break-even';
   const dscrR = Math.round(dscr * 100) / 100;

@@ -10,6 +10,7 @@ Investment property cash flow underwriting tool. Back-solves required rent for a
 - **Auto-calculated insurance** based on a configurable rate per sq ft + minimum premium
 - **ZIP-code-driven property tax rates** as a fallback when Zillow tax data isn't pasted, with editable lookup table (pre-loaded with Central Texas / McLennan County rates)
 - **Back-solve rent** for any target DSCR
+- **Solve for target DSCR at your rent** — once you set rent, shows the cash down needed at the current price and the max purchase price at your current down %, each with a one-tap Apply
 - **Live sliders** for price and rent — DSCR, cash flow, cap rate, and CoC update in real time
 - **Fully adjustable financing** — down payment, rate, term
 - **Operating expense controls** — vacancy, management, maintenance, CapEx reserve
@@ -53,6 +54,11 @@ Cap Rate       = NOI / Price
 Cash-on-Cash   = Cash Flow / Down Payment
 
 Required Rent  = (TargetDSCR × ADS + Tax + Ins) / (12 × (1 − (Vacancy + Mgmt + Maint + CapEx)/100))
+
+RentNOI        = Gross Rent × (1 − (Vacancy + Mgmt + Maint + CapEx)/100) − Ins
+k              = annual P&I per $1 of loan
+Down Needed    = Price − (RentNOI − Price × TaxRate) / (TargetDSCR × k)
+Max Price      = RentNOI / (TaxRate + TargetDSCR × k × (1 − Down %))
 ```
 
 ## Notes on Zillow
