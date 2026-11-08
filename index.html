@@ -716,7 +716,7 @@
     width: 64px; padding: 3px 6px; font-family: var(--font-mono); font-size: 12px; margin: 0 2px;
     background: rgba(0,0,0,0.25); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
   }
-  .solve-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .solve-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .solve-tile { border-left: 2px solid var(--accent); padding-left: 14px; }
   .solve-tile .t-label {
     font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
@@ -1145,24 +1145,37 @@
 
     <div class="input-row">
       <div class="input-group">
-        <label for="downPct">Down %</label>
+        <label for="downCash">Cash Down</label>
         <div class="input-with-suffix">
-          <input type="number" id="downPct" value="25" step="1" />
-          <span class="suffix">%</span>
+          <input type="number" id="downCash" step="1000" inputmode="numeric" />
+          <span class="suffix">USD</span>
         </div>
       </div>
       <div class="input-group">
-        <label for="rate">Rate</label>
+        <label for="downPct">Down %</label>
         <div class="input-with-suffix">
-          <input type="number" id="rate" value="7.5" step="0.125" />
+          <input type="number" id="downPct" value="25" step="1" inputmode="decimal" />
           <span class="suffix">%</span>
         </div>
       </div>
     </div>
+    <div class="help-text" id="downHelp" style="margin:-8px 0 16px;">Starts at 25%. Type an exact cash amount to lock it as price changes.</div>
 
-    <div class="input-group">
-      <label for="term">Loan Term (years)</label>
-      <input type="number" id="term" value="30" />
+    <div class="input-row">
+      <div class="input-group">
+        <label for="rate">Rate</label>
+        <div class="input-with-suffix">
+          <input type="number" id="rate" value="7.5" step="0.125" inputmode="decimal" />
+          <span class="suffix">%</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label for="term">Term</label>
+        <div class="input-with-suffix">
+          <input type="number" id="term" value="30" inputmode="numeric" />
+          <span class="suffix">yrs</span>
+        </div>
+      </div>
     </div>
 
     <div class="section-label">Operating</div>
@@ -1201,13 +1214,7 @@
       </div>
     </div>
 
-    <div class="input-group">
-      <label for="targetDscr">Target DSCR</label>
-      <input type="number" id="targetDscr" value="1.00" step="0.05" />
-      <div class="help-text">Rent back-solved to hit this on first calc.</div>
-    </div>
-
-    <button class="primary" onclick="calculate()">Calculate</button>
+    <div class="help-text" style="margin-bottom:14px;">Everything updates as you type. Set your target DSCR in the results panel.</div>
     <button class="secondary" onclick="resetAll()">Reset</button>
   </aside>
 
@@ -1420,6 +1427,8 @@ function collapseSetup() {
 function enterManually() {
   currentListing = null;
   showApp();
+  ui = null; rentVal = null;
+  recalc();
   document.getElementById('app').scrollIntoView({ behavior: 'smooth', block: 'start' });
   document.getElementById('address').focus({ preventScroll: true });
 }
@@ -1460,7 +1469,6 @@ const DEFAULT_CONFIG = {
 };
 
 let config = loadConfig();
-let currentState = null;
 let parsedTaxData = null;
 let currentListing = null;
 
@@ -1525,7 +1533,7 @@ function saveSettings() {
 
   saveConfig();
   closeSettings();
-  if (currentState) calculate();
+  if (ui) recalc();
 }
 
 // ───────── SCREENSHOT UPLOAD ─────────
@@ -1560,6 +1568,8 @@ async function uploadScreenshot(input) {
     if (data.price)   document.getElementById('price').value   = data.price;
 
     document.getElementById('app').style.display = 'grid';
+    ui = null; rentVal = null;
+    recalc();
 
     const parts = [];
     if (data.price) parts.push('$' + Number(data.price).toLocaleString());
@@ -1719,6 +1729,8 @@ function parseZillow() {
   } else {
     banner.style.display = 'none';
   }
+  ui = null; rentVal = null;
+  recalc();
 }
 
 function parseTaxHistory(text) {
@@ -1753,79 +1765,132 @@ function pmt(principal, annualRate, years) {
   return principal * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
 }
 
-function calculate() {
-  const address = document.getElementById('address').value.trim();
-  const sqft = parseFloat(document.getElementById('sqft').value);
-  const zip = document.getElementById('zip').value.trim();
-  const price = parseFloat(document.getElementById('price').value);
-  const downPct = parseFloat(document.getElementById('downPct').value);
-  const rate = parseFloat(document.getElementById('rate').value);
-  const term = parseFloat(document.getElementById('term').value);
-  const vacancy = parseFloat(document.getElementById('vacancy').value);
-  const mgmt = parseFloat(document.getElementById('mgmt').value);
-  const maint = parseFloat(document.getElementById('maint').value);
-  const capex = parseFloat(document.getElementById('capex').value);
-  const targetDscr = parseFloat(document.getElementById('targetDscr').value);
+// ───────── STATE ─────────
+// One set of numbers: sidebar inputs + rent. Sliders are just controls on top of them.
+const $ = id => document.getElementById(id);
+const numVal = id => parseFloat($(id).value);
+let ui = null;            // { listPrice, rentStart } once the results panel is built
+let rentVal = null;       // current monthly rent
+let downMode = 'pct';     // 'pct' = hold Down % as price moves, 'cash' = hold exact Cash Down
+let targetDscr = config.targetDscr || 1.25;
 
-  if (!sqft || !price || !zip) {
-    const content = document.getElementById('content');
-    content.innerHTML = `
+function readInputs() {
+  const zip = $('zip').value.trim();
+  const price = numVal('price');
+  let downPct = numVal('downPct');
+  const downCash = numVal('downCash');
+  if (downMode === 'cash' && isFinite(downCash) && price > 0) downPct = downCash / price * 100;
+  if (!isFinite(downPct)) downPct = 25;
+  const tax = parsedTaxData
+    ? { rate: parsedTaxData.rate, src: `Zillow ${parsedTaxData.year}` }
+    : { rate: getTaxRate(zip), src: `ZIP ${zip}` };
+  return {
+    address: $('address').value.trim(), sqft: numVal('sqft'), zip, price,
+    downPct: Math.min(100, Math.max(0, downPct)),
+    rate: numVal('rate') || 0, term: numVal('term') || 30,
+    vacancy: numVal('vacancy') || 0, mgmt: numVal('mgmt') || 0,
+    maint: numVal('maint') || 0, capex: numVal('capex') || 0,
+    taxRate: tax.rate, taxSource: tax.src, target: targetDscr
+  };
+}
+
+// ───────── MATH (single source of truth) ─────────
+function model(p, rent) {
+  const k = pmt(1, p.rate, p.term) * 12;                 // annual debt service per $1 of loan
+  const varPct = (p.vacancy + p.mgmt + p.maint + p.capex) / 100;
+  const annualIns = Math.max(p.sqft * config.insRate, config.insMin);
+  const annualTax = p.price * p.taxRate / 100;
+  const downPayment = p.price * p.downPct / 100;
+  const loanAmt = p.price - downPayment;
+  const annualDebt = loanAmt * k;
+  const gross = rent * 12;
+  const vacancyLoss = gross * p.vacancy / 100;
+  const mgmtCost = gross * p.mgmt / 100;
+  const maintCost = gross * p.maint / 100;
+  const capexCost = gross * p.capex / 100;
+  const noi = gross * (1 - varPct) - annualTax - annualIns;
+  const cashFlow = noi - annualDebt;
+  return {
+    k, varPct, annualIns, annualTax, downPayment, loanAmt, annualDebt, monthlyPI: annualDebt / 12,
+    gross, vacancyLoss, effGross: gross - vacancyLoss, mgmtCost, maintCost, capexCost, noi, cashFlow,
+    dscr: annualDebt > 0 ? noi / annualDebt : Infinity,
+    coc: downPayment > 0 && Math.abs(cashFlow) >= 0.5 ? cashFlow / downPayment * 100 : 0,
+    capRate: noi / p.price * 100
+  };
+}
+
+// Back-solve each lever to hit target DSCR, holding the other two where they are.
+function solve(p, rent) {
+  const m = model(p, rent);
+  const T = p.target, t = p.taxRate / 100;
+  const rentNOI = m.gross * (1 - m.varPct) - m.annualIns;   // NOI before property tax
+
+  const needRent = m.varPct < 1
+    ? (T * m.annualDebt + m.annualTax + m.annualIns) / (12 * (1 - m.varPct)) : null;
+
+  const noi = rentNOI - p.price * t;
+  const needDown = noi > 0 ? Math.max(0, p.price - noi / (T * m.k)) : null;
+
+  let maxPrice = null;
+  if (rentNOI > 0) {
+    maxPrice = downMode === 'cash'
+      ? (rentNOI + T * m.k * m.downPayment) / (t + T * m.k)      // cash down held fixed
+      : rentNOI / (t + T * m.k * (1 - p.downPct / 100));         // down % held fixed
+    if (downMode === 'cash' && maxPrice <= m.downPayment) maxPrice = rentNOI / t; // all-cash case
+  }
+  return { m, needRent, needDown, maxPrice };
+}
+
+// ───────── RENDER ─────────
+const fmt = v => `$${Math.round(v).toLocaleString()}`;
+const fmtSigned = v => `${v >= 0 ? '+' : '−'}${fmt(Math.abs(v))}`;
+
+function recalc(rebuild) {
+  const p = readInputs();
+
+  // keep the two down-payment boxes in step (only touch the one not being typed in)
+  if (p.price > 0) {
+    if (downMode === 'pct') $('downCash').value = Math.round(p.price * p.downPct / 100);
+    else $('downPct').value = Math.round(p.downPct * 10) / 10;
+  }
+
+  if (!p.sqft || !p.price || !p.zip) {
+    ui = null;
+    $('content').innerHTML = `
       <div class="property-header">
-        <div class="property-address">${escapeHtml(address) || 'New deal'}</div>
+        <div class="property-address">${escapeHtml(p.address) || 'New deal'}</div>
         <div class="property-meta"><span>Need sq ft, ZIP, and purchase price to run the model.</span></div>
-      </div>
-    `;
+      </div>`;
     return;
   }
 
-  let taxRate, taxSource;
-  if (parsedTaxData) {
-    taxRate = parsedTaxData.rate;
-    taxSource = `Zillow ${parsedTaxData.year}`;
-  } else {
-    taxRate = getTaxRate(zip);
-    taxSource = `ZIP ${zip}`;
-  }
-  const annualTax = price * (taxRate / 100);
-  const annualIns = Math.max(sqft * config.insRate, config.insMin);
-
-  const loanAmt = price * (1 - downPct / 100);
-  const monthlyPI = pmt(loanAmt, rate, term);
-  const annualDebt = monthlyPI * 12;
-
-  const opexFactor = 1 - (vacancy + mgmt + maint + capex) / 100;
-  const fixedOpex = annualTax + annualIns;
-  const requiredAnnualRent = (targetDscr * annualDebt + fixedOpex) / opexFactor;
-  const requiredMonthlyRent = requiredAnnualRent / 12;
-
-  currentState = {
-    address, sqft, zip, basePrice: price, baseRent: requiredMonthlyRent,
-    downPct, rate, term, vacancy, mgmt, maint, capex,
-    taxRate, taxSource, annualTax, annualIns, monthlyPI, annualDebt,
-    targetDscr: targetDscr > 0 ? targetDscr : 1
-  };
-
-  renderResults();
-  document.getElementById('lastCalc').textContent = `Updated ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+  if (!ui || rebuild) buildShell(p);
+  update(p);
+  $('lastCalc').textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-function renderResults() {
-  const s = currentState;
-  const content = document.getElementById('content');
-  // Anchor slider ranges on the base value so the thumb doesn't snap off it (+$6 / +$500 drift).
-  const rentLo = Math.max(25, s.baseRent - Math.round(s.baseRent * 0.5 / 25) * 25);
-  const rentHi = s.baseRent + Math.round(s.baseRent * 0.5 / 25) * 25;
-  const priceLo = s.basePrice - Math.round(s.basePrice * 0.3 / 1000) * 1000;
-  const priceHi = s.basePrice + Math.round(s.basePrice * 0.3 / 1000) * 1000;
+function buildShell(p) {
+  const zRent = currentListing && currentListing.rentZestimate ? Math.round(currentListing.rentZestimate) : null;
+  if (rentVal == null) {
+    const s0 = solve(p, 0);
+    rentVal = zRent || (s0.needRent ? Math.ceil(s0.needRent / 5) * 5 : 1500);
+  }
+  const listPrice = (currentListing && currentListing.price) || p.price;
+  ui = { listPrice, rentStart: rentVal, zRent };
 
-  content.innerHTML = `
+  const rentLo = Math.max(25, rentVal - Math.round(rentVal * 0.5 / 25) * 25);
+  const rentHi = rentVal + Math.round(rentVal * 0.5 / 25) * 25;
+  const priceLo = listPrice - Math.round(listPrice * 0.3 / 1000) * 1000;
+  const priceHi = listPrice + Math.round(listPrice * 0.3 / 1000) * 1000;
+
+  $('content').innerHTML = `
     <div class="property-header">
-      <div class="property-address">${escapeHtml(s.address) || 'Unnamed Property'}</div>
+      <div class="property-address" id="resAddr"></div>
       <div class="property-meta">
-        <span><strong>${s.sqft.toLocaleString()}</strong> sqft</span>
-        <span>ZIP <strong>${escapeHtml(s.zip)}</strong></span>
-        <span>Tax <strong>${s.taxRate.toFixed(3)}%</strong> <span style="color:var(--text-faint);font-size:10px;">(${escapeHtml(s.taxSource)})</span></span>
-        <span>Loan <strong id="loanMeta">$${Math.round(s.basePrice * (1 - s.downPct/100)).toLocaleString()}</strong></span>
+        <span><strong id="resSqft"></strong> sqft</span>
+        <span>ZIP <strong id="resZip"></strong></span>
+        <span>Tax <strong id="resTax"></strong> <span style="color:var(--text-faint);font-size:10px;" id="resTaxSrc"></span></span>
+        <span>Loan <strong id="loanMeta"></strong></span>
       </div>
     </div>
 
@@ -1836,312 +1901,216 @@ function renderResults() {
         <div class="slider-header">
           <div>
             <div class="label">Monthly Rent</div>
-            <div><span class="value" id="rentVal">$0</span><span class="delta" id="rentDelta"></span></div>
+            <div><span class="value" id="rentVal"></span><span class="delta" id="rentDelta"></span></div>
           </div>
         </div>
-        <input type="range" id="rentSlider" min="${rentLo}" max="${rentHi}" step="25" value="${s.baseRent}" />
+        <input type="range" id="rentSlider" min="${rentLo}" max="${rentHi}" step="25" />
         <div class="slider-range">
-          <span id="rentLoLbl">$${Math.round(rentLo).toLocaleString()}</span>
-          <span>Required: $${Math.round(s.baseRent).toLocaleString()}</span>
-          <span id="rentHiLbl">$${Math.round(rentHi).toLocaleString()}</span>
+          <span id="rentLoLbl"></span>
+          ${zRent ? `<span class="rent-ref" style="margin:0;">Zestimate <button onclick="setRent(${zRent})">${fmt(zRent)}</button></span>` : '<span></span>'}
+          <span id="rentHiLbl"></span>
         </div>
-        ${currentListing && currentListing.rentZestimate ? `<div class="rent-ref">Zillow Rent Zestimate: $${Math.round(currentListing.rentZestimate).toLocaleString()}/mo <button onclick="setRent(${Math.round(currentListing.rentZestimate)})">use it</button></div>` : ''}
       </div>
 
       <div class="slider-card">
         <div class="slider-header">
           <div>
             <div class="label">Purchase Price</div>
-            <div><span class="value" id="priceVal">$0</span><span class="delta" id="priceDelta"></span></div>
+            <div><span class="value" id="priceVal"></span><span class="delta" id="priceDelta"></span></div>
           </div>
         </div>
-        <input type="range" id="priceSlider" min="${priceLo}" max="${priceHi}" step="1000" value="${s.basePrice}" />
+        <input type="range" id="priceSlider" min="${priceLo}" max="${priceHi}" step="1000" />
         <div class="slider-range">
-          <span id="priceLoLbl">$${Math.round(priceLo).toLocaleString()}</span>
-          <span>Listed: $${Math.round(s.basePrice).toLocaleString()}</span>
-          <span id="priceHiLbl">$${Math.round(priceHi).toLocaleString()}</span>
+          <span id="priceLoLbl"></span>
+          <span class="rent-ref" style="margin:0;">Listed <button onclick="setPrice(${listPrice})">${fmt(listPrice)}</button></span>
+          <span id="priceHiLbl"></span>
         </div>
       </div>
     </div>
 
     <div class="solve-panel">
       <div class="solve-head">
-        <div class="label">Solve for Target DSCR · at this rent</div>
-        <div class="target">Target <input type="number" id="solveTarget" step="0.05" min="0.5" value="${s.targetDscr.toFixed(2)}" />x</div>
+        <div class="label">Hit Target DSCR</div>
+        <div class="target">Target <input type="number" id="solveTarget" step="0.05" min="0.5" inputmode="decimal" value="${targetDscr.toFixed(2)}" />x</div>
       </div>
       <div class="solve-grid">
+        <div class="solve-tile" id="solveRent"></div>
         <div class="solve-tile" id="solveDown"></div>
         <div class="solve-tile" id="solvePrice"></div>
       </div>
     </div>
 
     <div class="breakdown">
-      <div class="breakdown-card">
-        <h3>Income</h3>
-        <div id="incomeLines"></div>
-      </div>
-      <div class="breakdown-card">
-        <h3>Expenses & Debt Service</h3>
-        <div id="expenseLines"></div>
-      </div>
+      <div class="breakdown-card"><h3>Income</h3><div id="incomeLines"></div></div>
+      <div class="breakdown-card"><h3>Expenses & Debt Service</h3><div id="expenseLines"></div></div>
     </div>
   `;
 
-  document.getElementById('rentSlider').addEventListener('input', updateLive);
-  document.getElementById('priceSlider').addEventListener('input', updateLive);
-  document.getElementById('solveTarget').addEventListener('input', e => {
+  $('rentSlider').addEventListener('input', e => { rentVal = parseFloat(e.target.value); recalc(); });
+  $('priceSlider').addEventListener('input', e => { $('price').value = e.target.value; recalc(); });
+  $('solveTarget').addEventListener('input', e => {
     const v = parseFloat(e.target.value);
-    if (v > 0) {
-      currentState.targetDscr = v;
-      document.getElementById('targetDscr').value = v;
-      updateLive();
-    }
+    if (v > 0) { targetDscr = v; config.targetDscr = v; saveConfig(); recalc(); }
   });
-
-  updateLive();
 }
 
-// Given the rent/price on the sliders, back-solve what it takes to hit target DSCR.
-// NOI(P) = rentNOI − P·taxRate   (rentNOI = EGI − variable opex − insurance)
-// Debt per $ of loan per year: k = pmt(1, rate, term) × 12
-function solveTarget(rent, price) {
-  const s = currentState;
-  const target = s.targetDscr;
-  const gross = rent * 12;
-  const rentNOI = gross * (1 - (s.vacancy + s.mgmt + s.maint + s.capex) / 100) - s.annualIns;
-  const t = s.taxRate / 100;
-  const k = pmt(1, s.rate, s.term) * 12;
-  const d = s.downPct / 100;
-
-  // 1) Cash down needed at the current price
-  const noiAtPrice = rentNOI - price * t;
-  let down = null;
-  if (noiAtPrice > 0) {
-    const maxLoan = noiAtPrice / target / k;
-    down = Math.max(0, price - maxLoan);
-  }
-
-  // 2) Max purchase price at the current down %
-  //    rentNOI − P·t = target·k·(1−d)·P  →  P = rentNOI / (t + target·k·(1−d))
-  const maxPrice = rentNOI > 0 ? rentNOI / (t + target * k * (1 - d)) : null;
-
-  return { target, down, maxPrice, curDown: price * d };
-}
-
-function applySolvedDown() {
-  const s = currentState;
-  const price = parseFloat(document.getElementById('priceSlider').value);
-  const r = solveTarget(parseFloat(document.getElementById('rentSlider').value), price);
-  if (r.down == null) return;
-  const pct = Math.min(100, Math.ceil(r.down / price * 1000) / 10); // round up to 0.1% so we don't land under target
-  s.downPct = pct;
-  document.getElementById('downPct').value = pct;
-  updateLive();
-}
-
-function applySolvedPrice() {
-  const r = solveTarget(parseFloat(document.getElementById('rentSlider').value),
-                        parseFloat(document.getElementById('priceSlider').value));
-  if (r.maxPrice == null) return;
-  const sl = document.getElementById('priceSlider');
-  const v = Math.floor(r.maxPrice / 1000) * 1000; // round down to stay at/above target
-  if (v < +sl.min) sl.min = v;
-  if (v > +sl.max) sl.max = v;
+function placeSlider(sl, v, step) {
+  if (v < +sl.min) sl.min = Math.floor(v / step) * step;
+  if (v > +sl.max) sl.max = Math.ceil(v / step) * step;
   sl.value = v;
-  updateLive();
 }
 
-function updateLive() {
-  const s = currentState;
-  const rent = parseFloat(document.getElementById('rentSlider').value);
-  const price = parseFloat(document.getElementById('priceSlider').value);
+function update(p) {
+  const { m, needRent, needDown, maxPrice } = solve(p, rentVal);
 
-  const annualTax = price * (s.taxRate / 100);
-  const annualIns = s.annualIns;
-  const loanAmt = price * (1 - s.downPct / 100);
-  const monthlyPI = pmt(loanAmt, s.rate, s.term);
-  const annualDebt = monthlyPI * 12;
+  // header
+  $('resAddr').textContent = p.address || 'Unnamed Property';
+  $('resSqft').textContent = p.sqft.toLocaleString();
+  $('resZip').textContent = p.zip;
+  $('resTax').textContent = `${p.taxRate.toFixed(3)}%`;
+  $('resTaxSrc').textContent = `(${p.taxSource})`;
+  $('loanMeta').textContent = fmt(m.loanAmt);
 
-  const grossAnnualRent = rent * 12;
-  const vacancyLoss = grossAnnualRent * (s.vacancy / 100);
-  const effGross = grossAnnualRent - vacancyLoss;
-  const mgmtCost = grossAnnualRent * (s.mgmt / 100);
-  const maintCost = grossAnnualRent * (s.maint / 100);
-  const capexCost = grossAnnualRent * (s.capex / 100);
-  const totalOpex = mgmtCost + maintCost + capexCost + annualTax + annualIns;
-  const noi = effGross - totalOpex;
-  const dscr = noi / annualDebt;
-  const cashFlow = noi - annualDebt;
-  const monthlyCashFlow = Math.round(cashFlow / 12) || 0;
-  const downPayment = price * (s.downPct / 100);
-  const coc = Math.abs(cashFlow) < 0.5 ? 0 : (cashFlow / downPayment) * 100;
-  const capRate = (noi / price) * 100;
+  // sliders (visual only — values live in rentVal and the Price box)
+  const rs = $('rentSlider'), ps = $('priceSlider');
+  placeSlider(rs, rentVal, 25);
+  placeSlider(ps, p.price, 1000);
+  $('rentLoLbl').textContent = fmt(+rs.min);
+  $('rentHiLbl').textContent = fmt(+rs.max);
+  $('priceLoLbl').textContent = fmt(+ps.min);
+  $('priceHiLbl').textContent = fmt(+ps.max);
+  $('rentVal').textContent = fmt(rentVal);
+  $('priceVal').textContent = fmt(p.price);
+  const rd = rentVal - ui.rentStart, pd = p.price - ui.listPrice;
+  $('rentDelta').textContent = Math.abs(rd) < 1 ? '' : ` ${fmtSigned(rd)}`;
+  $('priceDelta').textContent = Math.abs(pd) < 1 ? '' : ` ${fmtSigned(pd)}`;
 
-  document.getElementById('rentVal').textContent = `$${Math.round(rent).toLocaleString()}`;
-  document.getElementById('priceVal').textContent = `$${Math.round(price).toLocaleString()}`;
-
-  const rentDelta = rent - s.baseRent;
-  document.getElementById('rentDelta').textContent = rentDelta === 0 ? '' : ` ${rentDelta > 0 ? '+' : ''}$${Math.round(rentDelta).toLocaleString()}`;
-
-  const priceDelta = price - s.basePrice;
-  document.getElementById('priceDelta').textContent = priceDelta === 0 ? '' : ` ${priceDelta > 0 ? '+' : ''}$${Math.round(priceDelta).toLocaleString()}`;
-
-  const rs = document.getElementById('rentSlider'), ps = document.getElementById('priceSlider');
-  document.getElementById('rentLoLbl').textContent = `$${Math.round(+rs.min).toLocaleString()}`;
-  document.getElementById('rentHiLbl').textContent = `$${Math.round(+rs.max).toLocaleString()}`;
-  document.getElementById('priceLoLbl').textContent = `$${Math.round(+ps.min).toLocaleString()}`;
-  document.getElementById('priceHiLbl').textContent = `$${Math.round(+ps.max).toLocaleString()}`;
-  document.getElementById('loanMeta').textContent = `$${Math.round(loanAmt).toLocaleString()}`;
-
-  const sv = solveTarget(rent, price);
-  const fmt = v => `$${Math.round(v).toLocaleString()}`;
-  const delta = (v, cur) => {
-    const dd = Math.round(v - cur);
-    if (Math.abs(dd) < 1) return '<span class="t-delta">matches current</span>';
-    return `<span class="t-delta ${dd > 0 ? 'up' : 'down'}">${dd > 0 ? '+' : '−'}${fmt(Math.abs(dd))} vs now</span>`;
-  };
-  // For price, paying more is "good" news (green), paying less needed is a cut (red)
-  const priceDelta2 = (v, cur) => {
-    const dd = Math.round(v - cur);
-    if (Math.abs(dd) < 1) return '<span class="t-delta">matches current</span>';
-    return `<span class="t-delta ${dd > 0 ? 'down' : 'up'}">${dd > 0 ? '+' : '−'}${fmt(Math.abs(dd))} vs now</span>`;
-  };
-
-  document.getElementById('solveDown').innerHTML = sv.down == null
-    ? `<div class="t-label">Cash down needed @ ${fmt(price)}</div>
-       <div class="t-value" style="color:var(--red)">Not reachable</div>
-       <div class="t-sub">NOI is negative at this rent — no loan size hits ${sv.target.toFixed(2)}x</div>`
-    : `<div class="t-label">Cash down needed @ ${fmt(price)}</div>
-       <div class="t-value">${fmt(sv.down)} <span style="font-size:15px;color:var(--text-faint);">${(sv.down / price * 100).toFixed(1)}%</span></div>
-       <div class="t-sub">${delta(sv.down, sv.curDown)} · loan ${fmt(price - sv.down)}</div>
-       <button onclick="applySolvedDown()" ${Math.abs(sv.down - sv.curDown) < 1 ? 'disabled' : ''}>Apply down %</button>`;
-
-  document.getElementById('solvePrice').innerHTML = sv.maxPrice == null
-    ? `<div class="t-label">Max price @ ${s.downPct}% down</div>
-       <div class="t-value" style="color:var(--red)">Not reachable</div>
-       <div class="t-sub">Rent doesn't cover insurance + operating costs</div>`
-    : `<div class="t-label">Max price @ ${s.downPct}% down</div>
-       <div class="t-value">${fmt(sv.maxPrice)}</div>
-       <div class="t-sub">${priceDelta2(sv.maxPrice, price)} · ${fmt(sv.maxPrice * s.downPct / 100)} down</div>
-       <button onclick="applySolvedPrice()" ${Math.abs(sv.maxPrice - price) < 1000 ? 'disabled' : ''}>Apply price</button>`;
-
+  // hero
   let cls = 'bad', status = 'Below break-even';
-  const dscrR = Math.round(dscr * 100) / 100;
-  if (dscrR >= 1.25) { cls = 'good'; status = 'Strong coverage'; }
+  const dscrR = Math.round(m.dscr * 100) / 100;
+  if (dscrR >= p.target) { cls = 'good'; status = `Meets ${p.target.toFixed(2)}x target`; }
   else if (dscrR >= 1.0) { cls = 'ok'; status = 'Above break-even'; }
   else if (dscrR >= 0.9) { cls = 'ok'; status = 'Near break-even'; }
-
-  document.getElementById('dscrHero').innerHTML = `
+  const monthlyCF = Math.round(m.cashFlow / 12) || 0;
+  $('dscrHero').innerHTML = `
     <div class="dscr-grid">
       <div class="dscr-value">
         <div class="dscr-label">Debt Service Coverage Ratio</div>
-        <div class="dscr-number ${cls}">${dscr.toFixed(2)}<span style="font-size:32px;color:var(--text-faint);">x</span></div>
+        <div class="dscr-number ${cls}">${isFinite(m.dscr) ? m.dscr.toFixed(2) : '∞'}<span style="font-size:32px;color:var(--text-faint);">x</span></div>
         <div class="dscr-status ${cls}">— ${status}</div>
       </div>
       <div class="metric-stat">
         <div class="label">Monthly Cash Flow</div>
-        <div class="value" style="color: ${monthlyCashFlow >= 0 ? 'var(--green)' : 'var(--red)'}">
-          ${monthlyCashFlow >= 0 ? '+' : '−'}$${Math.abs(Math.round(monthlyCashFlow)).toLocaleString()}
-        </div>
-        <div class="sub">$${(Math.round(cashFlow) || 0).toLocaleString()} / yr</div>
+        <div class="value" style="color:${monthlyCF >= 0 ? 'var(--green)' : 'var(--red)'}">${monthlyCF >= 0 ? '+' : '−'}${fmt(Math.abs(monthlyCF))}</div>
+        <div class="sub">${fmt(m.cashFlow || 0)} / yr</div>
       </div>
       <div class="metric-stat">
         <div class="label">Cash-on-Cash · Cap Rate</div>
-        <div class="value">${coc.toFixed(1)}% <span style="color:var(--text-faint);font-size:18px;">·</span> ${capRate.toFixed(2)}%</div>
-        <div class="sub">$${Math.round(downPayment).toLocaleString()} down</div>
+        <div class="value">${m.coc.toFixed(1)}% <span style="color:var(--text-faint);font-size:18px;">·</span> ${m.capRate.toFixed(2)}%</div>
+        <div class="sub">${fmt(m.downPayment)} down (${p.downPct.toFixed(1)}%)</div>
       </div>
-    </div>
-  `;
+    </div>`;
 
-  document.getElementById('incomeLines').innerHTML = `
-    <div class="line-item">
-      <span class="label">Gross Rent (annual)</span>
-      <span class="value">$${Math.round(grossAnnualRent).toLocaleString()}</span>
-    </div>
-    <div class="line-item">
-      <span class="label">Less: Vacancy (${s.vacancy}%)</span>
-      <span class="value" style="color:var(--red)">−$${Math.round(vacancyLoss).toLocaleString()}</span>
-    </div>
-    <div class="line-item total">
-      <span class="label">Effective Gross Income</span>
-      <span class="value">$${Math.round(effGross).toLocaleString()}</span>
-    </div>
-  `;
+  // solver tiles — red = you need more of it / pay less; green = room to spare
+  const delta = (v, cur, moreIsBad, step) => {
+    const d = v - cur;
+    if (Math.abs(d) < step) return '<span class="t-delta">at target now</span>';
+    const bad = moreIsBad ? d > 0 : d < 0;
+    return `<span class="t-delta ${bad ? 'up' : 'down'}">${fmtSigned(d)} vs now</span>`;
+  };
+  const unreachable = (label, why) => `<div class="t-label">${label}</div>
+    <div class="t-value" style="color:var(--red)">Not reachable</div><div class="t-sub">${why}</div>`;
 
-  document.getElementById('expenseLines').innerHTML = `
-    <div class="line-item">
-      <span class="label">
-        Property Tax (${s.taxRate.toFixed(3)}%)
-        <span class="sub">Source: ${escapeHtml(s.taxSource)}</span>
-      </span>
-      <span class="value">$${Math.round(annualTax).toLocaleString()}</span>
-    </div>
-    <div class="line-item">
-      <span class="label">Insurance ($${config.insRate}/sqft)</span>
-      <span class="value">$${Math.round(annualIns).toLocaleString()}</span>
-    </div>
-    <div class="line-item">
-      <span class="label">Management (${s.mgmt}%)</span>
-      <span class="value">$${Math.round(mgmtCost).toLocaleString()}</span>
-    </div>
-    <div class="line-item">
-      <span class="label">Maintenance (${s.maint}%)</span>
-      <span class="value">$${Math.round(maintCost).toLocaleString()}</span>
-    </div>
-    <div class="line-item">
-      <span class="label">CapEx Reserve (${s.capex}%)</span>
-      <span class="value">$${Math.round(capexCost).toLocaleString()}</span>
-    </div>
-    <div class="line-item total">
-      <span class="label">Net Operating Income</span>
-      <span class="value">$${Math.round(noi).toLocaleString()}</span>
-    </div>
-    <div class="line-item" style="margin-top:12px;">
-      <span class="label">
-        Annual Debt Service
-        <span class="sub">$${Math.round(monthlyPI).toLocaleString()}/mo P&I · ${s.rate}% / ${s.term}yr</span>
-      </span>
-      <span class="value">$${Math.round(annualDebt).toLocaleString()}</span>
-    </div>
-  `;
+  const holdDown = downMode === 'cash' ? `${fmt(m.downPayment)} down` : `${p.downPct.toFixed(1)}% down`;
+
+  $('solveRent').innerHTML = needRent == null
+    ? unreachable('Rent needed', 'Operating % adds up to 100% or more')
+    : `<div class="t-label">Rent needed</div>
+       <div class="t-value">${fmt(needRent)}<span style="font-size:15px;color:var(--text-faint);">/mo</span></div>
+       <div class="t-sub">${delta(needRent, rentVal, true, 1)} · ${fmt(p.price)}, ${holdDown}</div>
+       <button onclick="applyRent()" ${Math.abs(needRent - rentVal) < 1 ? 'disabled' : ''}>Apply rent</button>`;
+
+  $('solveDown').innerHTML = needDown == null
+    ? unreachable('Cash down needed', `NOI is negative at this rent — no loan size hits ${p.target.toFixed(2)}x`)
+    : `<div class="t-label">Cash down needed</div>
+       <div class="t-value">${fmt(needDown)} <span style="font-size:15px;color:var(--text-faint);">${(needDown / p.price * 100).toFixed(1)}%</span></div>
+       <div class="t-sub">${delta(needDown, m.downPayment, true, 1)} · at ${fmt(p.price)}</div>
+       <button onclick="applyDown()" ${Math.abs(needDown - m.downPayment) < 1 ? 'disabled' : ''}>Apply cash down</button>`;
+
+  $('solvePrice').innerHTML = maxPrice == null
+    ? unreachable('Max price', "Rent doesn't cover insurance + operating costs")
+    : `<div class="t-label">Max price</div>
+       <div class="t-value">${fmt(maxPrice)}</div>
+       <div class="t-sub">${delta(maxPrice, p.price, false, 100)} · ${holdDown}</div>
+       <button onclick="applyPrice()" ${Math.abs(maxPrice - p.price) < 100 ? 'disabled' : ''}>Apply price</button>`;
+
+  // breakdown
+  $('incomeLines').innerHTML = `
+    <div class="line-item"><span class="label">Gross Rent (annual)</span><span class="value">${fmt(m.gross)}</span></div>
+    <div class="line-item"><span class="label">Less: Vacancy (${p.vacancy}%)</span><span class="value" style="color:var(--red)">−${fmt(m.vacancyLoss)}</span></div>
+    <div class="line-item total"><span class="label">Effective Gross Income</span><span class="value">${fmt(m.effGross)}</span></div>`;
+
+  $('expenseLines').innerHTML = `
+    <div class="line-item"><span class="label">Property Tax (${p.taxRate.toFixed(3)}%)<span class="sub">Source: ${escapeHtml(p.taxSource)}</span></span><span class="value">${fmt(m.annualTax)}</span></div>
+    <div class="line-item"><span class="label">Insurance ($${config.insRate}/sqft)</span><span class="value">${fmt(m.annualIns)}</span></div>
+    <div class="line-item"><span class="label">Management (${p.mgmt}%)</span><span class="value">${fmt(m.mgmtCost)}</span></div>
+    <div class="line-item"><span class="label">Maintenance (${p.maint}%)</span><span class="value">${fmt(m.maintCost)}</span></div>
+    <div class="line-item"><span class="label">CapEx Reserve (${p.capex}%)</span><span class="value">${fmt(m.capexCost)}</span></div>
+    <div class="line-item total"><span class="label">Net Operating Income</span><span class="value">${fmt(m.noi)}</span></div>
+    <div class="line-item" style="margin-top:12px;"><span class="label">Annual Debt Service<span class="sub">${fmt(m.monthlyPI)}/mo P&I · ${p.rate}% / ${p.term}yr · ${fmt(m.loanAmt)} loan</span></span><span class="value">${fmt(m.annualDebt)}</span></div>`;
 }
+
+// ───────── ACTIONS ─────────
+function setRent(v) { rentVal = v; recalc(); }
+function setPrice(v) { $('price').value = v; recalc(); }
+function setDownCash(v) { downMode = 'cash'; $('downCash').value = v; recalc(); }
+
+function applyRent() {
+  const s = solve(readInputs(), rentVal);
+  if (s.needRent != null) setRent(Math.ceil(s.needRent));               // round up → stays at/above target
+}
+function applyDown() {
+  const s = solve(readInputs(), rentVal);
+  if (s.needDown != null) setDownCash(Math.ceil(s.needDown / 100) * 100);
+}
+function applyPrice() {
+  const s = solve(readInputs(), rentVal);
+  if (s.maxPrice != null) setPrice(Math.floor(s.maxPrice / 100) * 100);  // round down → stays at/above target
+}
+
+// Live updates from the sidebar
+['address', 'sqft', 'zip', 'price', 'rate', 'term', 'vacancy', 'mgmt', 'maint', 'capex']
+  .forEach(id => $(id).addEventListener('input', () => recalc()));
+$('downCash').addEventListener('input', () => { downMode = 'cash'; recalc(); });
+$('downPct').addEventListener('input', () => { downMode = 'pct'; recalc(); });
 
 function resetAll() {
   if (!confirm('Clear all inputs and start over?')) return;
-  ['address','sqft','zip','price','zillowPaste'].forEach(id => {
-    const el = document.getElementById(id);
+  ['address', 'sqft', 'zip', 'price', 'zillowPaste', 'downCash'].forEach(id => {
+    const el = $(id);
     if (el) el.value = '';
   });
-  document.getElementById('downPct').value = 25;
-  document.getElementById('rate').value = 7.5;
-  document.getElementById('term').value = 30;
-  document.getElementById('vacancy').value = 5;
-  document.getElementById('mgmt').value = 8;
-  document.getElementById('maint').value = 5;
-  document.getElementById('capex').value = 5;
-  document.getElementById('targetDscr').value = 1.00;
-  document.getElementById('taxSource').style.display = 'none';
-  document.getElementById('entryStatus').textContent = '';
-  document.getElementById('previewWrap').style.display = 'none';
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('setup').classList.remove('collapsed');
-  document.getElementById('setupToggle').style.display = 'none';
+  $('downPct').value = 25;
+  $('rate').value = 7.5;
+  $('term').value = 30;
+  $('vacancy').value = 5;
+  $('mgmt').value = 8;
+  $('maint').value = 5;
+  $('capex').value = 5;
+  downMode = 'pct';
+  $('taxSource').style.display = 'none';
+  $('entryStatus').textContent = '';
+  $('previewWrap').style.display = 'none';
+  $('app').style.display = 'none';
+  $('setup').classList.remove('collapsed');
+  $('setupToggle').style.display = 'none';
   parsedTaxData = null;
-  currentState = null;
   currentListing = null;
-  document.getElementById('lastCalc').textContent = 'Awaiting input';
-  document.getElementById('content').innerHTML = '';
+  ui = null;
+  rentVal = null;
+  $('lastCalc').textContent = 'Awaiting input';
+  $('content').innerHTML = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function setRent(v) {
-  const sl = document.getElementById('rentSlider');
-  if (!sl) return;
-  if (v < +sl.min) sl.min = Math.floor(v / 25) * 25;
-  if (v > +sl.max) sl.max = Math.ceil(v / 25) * 25;
-  sl.step = 1;
-  sl.value = v;
-  updateLive();
 }
 
 // ───────── IMPORT FROM ⚡ BUTTON (#zimport=…) ─────────
@@ -2202,7 +2171,8 @@ function importFromHash() {
 
   collapseSetup();
   showApp();
-  calculate();
+  ui = null; rentVal = null;
+  recalc();
   setTimeout(() => document.getElementById('previewWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 }
 

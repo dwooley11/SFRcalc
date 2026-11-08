@@ -1,6 +1,6 @@
 # DSCR Analyzer
 
-Investment property cash flow underwriting tool. Back-solves required rent for a target DSCR (1.00x by default), then lets you flex purchase price and rent with live sliders to see how coverage, cash flow, cap rate, and cash-on-cash respond.
+Investment property cash flow underwriting tool. Everything updates live as you type. Rent starts at the Zillow Rent Zestimate (or the rent needed to hit your target DSCR), down payment starts at 25%, and a single Hit Target DSCR panel back-solves rent, cash down, or max price.
 
 ## Features
 
@@ -9,10 +9,10 @@ Investment property cash flow underwriting tool. Back-solves required rent for a
 - **Zillow Tax History parsing** — paste the property's tax table and the app computes the actual effective tax rate from the most recent year's bill ÷ assessed value, then applies it to your purchase price (catches the Texas post-sale reassessment bump)
 - **Auto-calculated insurance** based on a configurable rate per sq ft + minimum premium
 - **ZIP-code-driven property tax rates** as a fallback when Zillow tax data isn't pasted, with editable lookup table (pre-loaded with Central Texas / McLennan County rates)
-- **Back-solve rent** for any target DSCR
-- **Solve for target DSCR at your rent** — once you set rent, shows the cash down needed at the current price and the max purchase price at your current down %, each with a one-tap Apply
+- **Hit Target DSCR panel** — three answers for your target (saved between visits): rent needed, cash down needed, and max price, each holding the other two levers where they are, with one-tap Apply
+- **Cash Down + Down %** — starts at 25%; type an exact cash amount to lock it as price moves, or a % to scale with price
 - **Live sliders** for price and rent — DSCR, cash flow, cap rate, and CoC update in real time
-- **Fully adjustable financing** — down payment, rate, term
+- **Fully adjustable financing** — cash down / down %, rate, term
 - **Operating expense controls** — vacancy, management, maintenance, CapEx reserve
 - **No backend** — pure HTML/JS, deploys as static site
 - **Local storage** — settings persist in your browser
@@ -58,7 +58,8 @@ Required Rent  = (TargetDSCR × ADS + Tax + Ins) / (12 × (1 − (Vacancy + Mgmt
 RentNOI        = Gross Rent × (1 − (Vacancy + Mgmt + Maint + CapEx)/100) − Ins
 k              = annual P&I per $1 of loan
 Down Needed    = Price − (RentNOI − Price × TaxRate) / (TargetDSCR × k)
-Max Price      = RentNOI / (TaxRate + TargetDSCR × k × (1 − Down %))
+Max Price      = RentNOI / (TaxRate + TargetDSCR × k × (1 − Down %))        (Down % held)
+               = (RentNOI + TargetDSCR × k × CashDown) / (TaxRate + TargetDSCR × k)   (Cash Down held)
 ```
 
 ## Notes on Zillow
