@@ -1214,8 +1214,10 @@
       </div>
     </div>
 
-    <div class="help-text" style="margin-bottom:14px;">Everything updates as you type. Set your target DSCR in the results panel.</div>
-    <button class="secondary" onclick="resetAll()">Reset</button>
+    <button class="primary" onclick="calcAndShow()">Calculate</button>
+    <div style="text-align:center;margin-top:10px;">
+      <button class="link-btn" onclick="resetAll()" style="font-size:10px;color:var(--text-faint);">Clear property &amp; start over</button>
+    </div>
   </aside>
 
   <section class="content" id="content"></section>
@@ -2061,6 +2063,13 @@ function update(p) {
 }
 
 // ───────── ACTIONS ─────────
+// Results already update live; Calculate just closes the keyboard and jumps to them.
+function calcAndShow() {
+  if (document.activeElement) document.activeElement.blur();
+  recalc();
+  const target = $('dscrHero') || $('content');
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 function setRent(v) { rentVal = v; recalc(); }
 function setPrice(v) { $('price').value = v; recalc(); }
 function setDownCash(v) { downMode = 'cash'; $('downCash').value = v; recalc(); }
