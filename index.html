@@ -1247,6 +1247,15 @@
       </div>
     </div>
 
+    <div class="input-group">
+      <label for="targetDscr">Target DSCR</label>
+      <div class="input-with-suffix">
+        <input type="number" id="targetDscr" step="0.05" min="0.5" inputmode="decimal" />
+        <span class="suffix">x</span>
+      </div>
+      <div class="help-text">Drives the "Hit Target DSCR" panel and starting rent. Remembered between visits.</div>
+    </div>
+
     <button class="primary" onclick="calcAndShow()">Calculate</button>
     <div style="text-align:center;margin-top:10px;">
       <button class="link-btn" onclick="resetAll()" style="font-size:10px;color:var(--text-faint);">Clear property &amp; start over</button>
@@ -1985,10 +1994,7 @@ function buildShell(p) {
 
   $('rentSlider').addEventListener('input', e => { rentVal = parseFloat(e.target.value); recalc(); });
   $('priceSlider').addEventListener('input', e => { $('price').value = e.target.value; recalc(); });
-  $('solveTarget').addEventListener('input', e => {
-    const v = parseFloat(e.target.value);
-    if (v > 0) { targetDscr = v; config.targetDscr = v; saveConfig(); recalc(); }
-  });
+  $('solveTarget').addEventListener('input', e => setTarget(e.target.value, 'solveTarget'));
 }
 
 function placeSlider(sl, v, step) {
@@ -2126,6 +2132,18 @@ function applyPrice() {
 ['address', 'sqft', 'zip', 'price', 'rate', 'term', 'vacancy', 'mgmt', 'maint', 'capex']
   .forEach(id => $(id).addEventListener('input', () => recalc()));
 $('downCash').addEventListener('input', () => { downMode = 'cash'; recalc(); });
+$('targetDscr').value = targetDscr.toFixed(2);
+$('targetDscr').addEventListener('input', e => setTarget(e.target.value, 'targetDscr'));
+
+// One target value; whichever box you type in, the other follows.
+function setTarget(raw, from) {
+  const v = parseFloat(raw);
+  if (!(v > 0)) return;
+  targetDscr = v; config.targetDscr = v; saveConfig();
+  const other = from === 'targetDscr' ? $('solveTarget') : $('targetDscr');
+  if (other) other.value = v.toFixed(2);
+  recalc();
+}
 $('downPct').addEventListener('input', () => { downMode = 'pct'; recalc(); });
 
 function resetAll() {
