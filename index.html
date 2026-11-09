@@ -1518,7 +1518,8 @@ function sfrZillowGrab(target, deliver, fail) {
     for (var i = 0; i < scripts.length; i++) if (scripts[i] !== nd) roots.push(scripts[i].textContent);
     return roots;
   }
-  function build(p) {
+  function build(p, doc) {
+    doc = doc || document;
     var a = (p.address && typeof p.address === 'object') ? p.address : {};
     var street = p.streetAddress || a.streetAddress || '';
     var city = p.city || a.city || '';
@@ -1538,7 +1539,7 @@ function sfrZillowGrab(target, deliver, fail) {
       var j = p.originalPhotos[0].mixedSources && p.originalPhotos[0].mixedSources.jpeg;
       if (j && j.length) img = j[j.length - 1].url;
     }
-    if (!img) { var og = document.querySelector('meta[property="og:image"]'); img = og && og.content; }
+    if (!img) { var og = doc.querySelector('meta[property="og:image"]'); img = og && og.content; }
 
     return {
       v: 1, src: 'zillow',
@@ -1560,15 +1561,18 @@ function sfrZillowGrab(target, deliver, fail) {
     deliver(target + '#zimport=' + encodeURIComponent(JSON.stringify(data)));
   }
 
+  // Zillow swaps listings in place (no page reload), so the page's embedded data can still
+  // describe the FIRST listing opened. Only trust it if its zpid matches the address bar.
+  function matches(o) { return o && (!urlZpid || String(o.zpid) === urlZpid); }
   var prop = findProperty(rootsFromDoc(document));
-  if (prop) return send(build(prop));
+  if (matches(prop)) return send(build(prop));
 
-  // Listing opened as an overlay on a search page: refetch the listing page itself (same-origin).
+  // Stale or missing data: refetch the current listing page itself (same-origin).
   if (urlZpid && typeof fetch === 'function') {
-    fetch(location.href, { credentials: 'include' }).then(function (r) { return r.text(); }).then(function (html) {
+    fetch(location.href, { credentials: 'include', cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (html) {
       var doc = new DOMParser().parseFromString(html, 'text/html');
       var p2 = findProperty(rootsFromDoc(doc));
-      if (p2) return send(build(p2));
+      if (matches(p2)) return send(build(p2, doc));
       fail('SFRcalc: couldn\'t find listing data on this page. Try reloading the listing and tapping again.');
     }).catch(function () {
       fail('SFRcalc: couldn\'t read this listing. Try reloading the page and tapping again.');
@@ -2456,6 +2460,16 @@ function importFromHash() {
     return;
   }
   history.replaceState(null, '', location.pathname + location.search);
+  const urlZ = (String(d.url || '').match(/(\d+)_zpid/) || [])[1];
+  if (d.zpid && urlZ && String(d.zpid) !== urlZ) {
+    status.className = 'entry-status error';
+    status.textContent = '⚠ Zillow sent data for a different listing than the one on screen (it does this after clicking between listings). '
+      + 'Reload the Zillow page and tap ⚡ again, or update your ⚡ button from Button Setup so it handles this automatically.';
+    switchView('analyze');
+    toggleSetup(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
   editingDealId = null;
   switchView('analyze');
   const n = v => (typeof v === 'number' && isFinite(v) && v > 0) ? v : null;
