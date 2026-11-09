@@ -1087,7 +1087,21 @@
   .pf-chart-head h3 { margin-bottom: 0; }
   .pf-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-dim); margin-top: 8px; }
   .pf-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
-  .pf-chart svg { width: 100%; height: auto; display: block; }
+  .pf-chart { position: relative; }
+  .pf-chart svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+  .wc-hit { cursor: pointer; }
+  .wc-tip { position: absolute; top: 4px; display: none; pointer-events: none; z-index: 5;
+    background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--text); min-width: 230px;
+    box-shadow: 0 6px 18px rgba(28, 28, 26, 0.18); }
+  .wc-tip .t { font-family: var(--font-display); font-size: 16px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .wc-tip .t span { font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); }
+  .wc-tip .r { display: flex; justify-content: space-between; gap: 16px; line-height: 1.7; }
+  .wc-tip .r.sub { color: var(--text-faint); padding-left: 14px; }
+  .wc-tip .r.big { font-weight: 600; }
+  .wc-tip .sep { border-top: 1px solid var(--line); margin: 5px 0; }
+  @media (max-width: 560px) { .wc-tip { position: static; margin-top: 10px; min-width: 0; box-shadow: none; } }
+  .wc-tip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
   .pf-chart-total { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); margin-top: 6px; }
   .pf-chart-total strong { color: var(--accent); font-weight: 500; }
   .pf-backup { color: var(--text-dim); font-size: 13px; }
@@ -2808,12 +2822,16 @@ function loanBalance(L, ratePct, years, months) {
 function drawWealthChart(rows) {
   const g = (pf.rg || 0) / 100, ap = (pf.app || 0) / 100;
   const cashIn = rows.reduce((s, x) => s + x.r.cashIn, 0), value = rows.reduce((s, x) => s + x.r.p.price, 0);
+  const downTotal = rows.reduce((s, x) => s + x.r.m.downPayment, 0);   // equity at purchase (closing costs aren't equity)
   const years = [...Array(11).keys()];
+  const loanTotal = rows.reduce((s, x) => s + x.r.m.loanAmt, 0);
   let cum = 0;
   const data = years.map(y => {
     if (y > 0) cum += rows.reduce((s, { r }) => s + (r.rent * 12 - r.opexAnnual) * Math.pow(1 + g, y - 1) - r.m.annualDebt, 0);
     const pay = rows.reduce((s, { r }) => s + (r.m.loanAmt - loanBalance(r.m.loanAmt, r.p.rate, r.p.term, y * 12)), 0);
-    return { y, base: cashIn, pay, appr: value * (Math.pow(1 + ap, y) - 1), cf: cum };
+    const propValue = value * Math.pow(1 + ap, y);
+    const loanBal = loanTotal - pay;
+    return { y, base: downTotal, pay, appr: propValue - value, cf: cum, propValue, loanBal, equity: propValue - loanBal };
   });
   const W = Math.max(320, Math.min(720, $('pfChart').clientWidth || 640)), H = W < 480 ? 230 : 260, padL = 54, padR = 6, padT = 10, padB = 26;
   const maxV = Math.max(...data.map(d => d.base + d.pay + d.appr + Math.max(0, d.cf)));
@@ -2825,7 +2843,7 @@ function drawWealthChart(rows) {
   const bw = (W - padL - padR) / data.length, barW = bw * 0.62;
   const X = i => padL + i * bw + (bw - barW) / 2;
   const kfmt = v => { const a = Math.abs(v), s = v < 0 ? '−$' : '$'; return a >= 1e6 ? s + (a / 1e6).toFixed(1) + 'M' : s + Math.round(a / 1e3) + 'K'; };
-  const C = { base: '#154734', pay: '#FFB81C', appr: '#9dbba9', cfp: '#2f6b52', cfn: '#c8553d' };
+  const C = { base: '#154734', pay: '#FFB81C', appr: '#9dbba9', cfp: '#7d9bd1', cfn: '#c8553d' };
   let svg = '';
   for (let v = bot; v <= top + 1e-6; v += step) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(28,28,26,${v === 0 ? 0.6 : 0.12})"/>`
@@ -2839,14 +2857,56 @@ function drawWealthChart(rows) {
     if (d.cf < 0) svg += `<rect x="${X(i)}" y="${Y(0)}" width="${barW}" height="${Y(d.cf) - Y(0)}" fill="${C.cfn}"/>`;
     if (W >= 480 || i % 2 === 0) svg += `<text x="${X(i) + barW / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#6f6a5e" font-family="JetBrains Mono, monospace">${i === 0 ? 'Now' : 'Yr ' + d.y}</text>`;
   });
+  svg = `<rect id="wcHi" x="0" y="${padT}" width="${bw}" height="${H - padT - padB}" fill="rgba(28,28,26,0.07)" style="display:none"/>` + svg;
+  data.forEach((d, i) => { svg += `<rect class="wc-hit" data-i="${i}" x="${padL + i * bw}" y="0" width="${bw}" height="${H}" fill="transparent"/>`; });
   const last = data[10];
-  const total = last.base + last.pay + last.appr + last.cf;
-  $('pfChart').innerHTML = `<div class="pf-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="10-year wealth build by year">${svg}</svg></div>
+  const total = last.equity + last.cf;
+  $('pfChart').innerHTML = `<div class="pf-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="10-year wealth build by year">${svg}</svg><div class="wc-tip" id="wcTip"></div></div>
     <div class="pf-legend">
-      <span><i style="background:${C.base}"></i>Cash invested</span><span><i style="background:${C.pay}"></i>Principal paydown</span>
+      <span><i style="background:${C.base}"></i>Down payment</span><span><i style="background:${C.pay}"></i>Principal paydown</span>
       <span><i style="background:${C.appr}"></i>Appreciation</span><span><i style="background:${last.cf >= 0 ? C.cfp : C.cfn}"></i>Cumulative cash flow</span>
     </div>
-    <div class="pf-chart-total">Year 10: <strong>${fmt(total)}</strong> in equity + cash flow on ${fmt(cashIn)} invested (before income taxes and selling costs).</div>`;
+    <div class="pf-chart-total">Year 10: <strong>${fmt(total)}</strong> in equity + cash flow on ${fmt(cashIn)} invested (before income taxes and selling costs). <span style="color:var(--text-faint)">Hover or tap a bar for that year.</span></div>`;
+
+  // ── per-year readout on hover / tap
+  const wrap = $('pfChart').querySelector('.pf-chart'), tip = $('wcTip'), hi = $('wcHi'), svgEl = wrap.querySelector('svg');
+  const sgn = v => `${v < 0 ? '−' : ''}${fmt(Math.abs(v))}`;
+  const sw = c => `<i style="background:${c}"></i>`;
+  function show(i) {
+    const d = data[i], tot = d.equity + d.cf, gain = tot - cashIn, mult = cashIn > 0 ? tot / cashIn : 0;
+    tip.innerHTML = `
+      <div class="t">${i === 0 ? 'Today' : 'Year ' + d.y}<span>${rows.length} propert${rows.length === 1 ? 'y' : 'ies'}</span></div>
+      <div class="r"><span>Property value</span><b>${fmt(d.propValue)}</b></div>
+      <div class="r"><span>Loan balance</span><b>−${fmt(d.loanBal)}</b></div>
+      <div class="r big"><span>Equity</span><b>${fmt(d.equity)}</b></div>
+      <div class="r sub"><span>${sw(C.base)}Down payment</span><span>${fmt(d.base)}</span></div>
+      <div class="r sub"><span>${sw(C.pay)}Principal paid</span><span>${fmt(d.pay)}</span></div>
+      <div class="r sub"><span>${sw(C.appr)}Appreciation</span><span>${fmt(d.appr)}</span></div>
+      <div class="r"><span>${sw(d.cf >= 0 ? C.cfp : C.cfn)}Cumulative cash flow</span><b>${sgn(d.cf)}</b></div>
+      <div class="sep"></div>
+      <div class="r big"><span>Total wealth</span><b>${sgn(tot)}</b></div>
+      <div class="r"><span>Cash invested <span style="color:var(--text-faint)">(down + closing)</span></span><b>${fmt(cashIn)}</b></div>
+      <div class="r big"><span>Gain on cash in</span><b>${sgn(gain)}${mult ? ` · ${mult.toFixed(2)}x` : ''}</b></div>`;
+    tip.style.display = 'block';
+    hi.setAttribute('x', padL + i * bw); hi.style.display = '';
+    const scale = svgEl.clientWidth / W, cx = (padL + i * bw + bw / 2) * scale, tw = tip.offsetWidth, ww = wrap.clientWidth;
+    if (getComputedStyle(tip).position !== 'absolute') return;   // phones: readout sits below the chart
+    let left = cx > ww / 2 ? cx - tw - bw * scale * 0.6 : cx + bw * scale * 0.6;
+    tip.style.left = Math.max(0, Math.min(ww - tw, left)) + 'px';
+  }
+  function hide() { tip.style.display = 'none'; hi.style.display = 'none'; }
+  wrap.querySelectorAll('.wc-hit').forEach(el => {
+    el.addEventListener('mouseenter', () => show(+el.dataset.i));
+    el.addEventListener('click', e => { e.stopPropagation(); show(+el.dataset.i); });
+  });
+  wrap.addEventListener('mouseleave', hide);
+  if (!window.__wcDocBound) {   // tap anywhere else to dismiss (bound once)
+    window.__wcDocBound = true;
+    document.addEventListener('click', e => {
+      const w = document.querySelector('#pfChart .pf-chart');
+      if (w && !w.contains(e.target)) { const t = $('wcTip'), h = $('wcHi'); if (t) t.style.display = 'none'; if (h) h.style.display = 'none'; }
+    });
+  }
 }
 
 // backup
