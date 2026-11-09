@@ -252,16 +252,21 @@
 
   .preview-card:hover { border-color: var(--border-strong); }
 
+  /* Photo keeps its original aspect ratio (no cropping); centered in its column */
+  #previewImgWrap {
+    background: var(--bg-deep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
   .preview-img {
     width: 100%;
-    height: 100%;
-    min-height: 320px;
-    object-fit: cover;
-    background: var(--bg-deep);
+    height: auto;
     display: block;
   }
 
   .preview-img.placeholder {
+    min-height: 320px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -333,7 +338,9 @@
     font-size: 13px;
     line-height: 1.5;
     margin-bottom: 20px;
-    max-height: 80px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
     overflow: hidden;
   }
 
@@ -996,7 +1003,7 @@
     .entry { flex-direction: column; padding: 12px; }
     .entry-btn { width: 100%; padding: 12px; justify-content: center; }
     .preview-card { grid-template-columns: 1fr; }
-    .preview-img { min-height: 240px; }
+    .preview-img.placeholder { min-height: 200px; }
     .app { grid-template-columns: 1fr; }
     .sidebar { position: relative; top: 0; }
     .dscr-grid { grid-template-columns: 1fr; gap: 16px; }
