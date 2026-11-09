@@ -1319,6 +1319,15 @@
       </div>
     </div>
 
+    <div class="input-group">
+      <label for="closingPct">Closing Costs</label>
+      <div class="input-with-suffix">
+        <input type="number" id="closingPct" value="2.5" step="0.25" inputmode="decimal" />
+        <span class="suffix">% of price</span>
+      </div>
+      <div class="help-text">Added to cash in for cash-on-cash. Same setting as the Potential Portfolio tab.</div>
+    </div>
+
     <div class="section-label">Operating</div>
 
     <div class="input-row">
@@ -1984,7 +1993,7 @@ function readInputs() {
   return {
     address: $('address').value.trim(), sqft: numVal('sqft'), zip, price,
     downPct: Math.min(100, Math.max(0, downPct)),
-    rate: numVal('rate') || 0, term: numVal('term') || 30,
+    rate: numVal('rate') || 0, term: numVal('term') || 30, closingPct: numVal('closingPct') || 0,
     vacancy: numVal('vacancy') || 0, mgmt: numVal('mgmt') || 0,
     maint: numVal('maint') || 0, capex: numVal('capex') || 0,
     taxRate: tax.rate, taxSource: tax.src, target: targetDscr
@@ -1998,6 +2007,8 @@ function model(p, rent) {
   const annualIns = Math.max(p.sqft * config.insRate, config.insMin);
   const annualTax = p.price * p.taxRate / 100;
   const downPayment = p.price * p.downPct / 100;
+  const closingCosts = p.price * (p.closingPct || 0) / 100;
+  const cashIn = downPayment + closingCosts;             // total cash to close
   const loanAmt = p.price - downPayment;
   const annualDebt = loanAmt * k;
   const gross = rent * 12;
@@ -2008,10 +2019,10 @@ function model(p, rent) {
   const noi = gross * (1 - varPct) - annualTax - annualIns;
   const cashFlow = noi - annualDebt;
   return {
-    k, varPct, annualIns, annualTax, downPayment, loanAmt, annualDebt, monthlyPI: annualDebt / 12,
+    k, varPct, annualIns, annualTax, downPayment, closingCosts, cashIn, loanAmt, annualDebt, monthlyPI: annualDebt / 12,
     gross, vacancyLoss, effGross: gross - vacancyLoss, mgmtCost, maintCost, capexCost, noi, cashFlow,
     dscr: annualDebt > 0 ? noi / annualDebt : Infinity,
-    coc: downPayment > 0 && Math.abs(cashFlow) >= 0.5 ? cashFlow / downPayment * 100 : 0,
+    coc: cashIn > 0 && Math.abs(cashFlow) >= 0.5 ? cashFlow / cashIn * 100 : 0,
     capRate: noi / p.price * 100
   };
 }
@@ -2204,7 +2215,7 @@ function update(p) {
       <div class="metric-stat">
         <div class="label">Cash-on-Cash · Cap Rate</div>
         <div class="value">${m.coc.toFixed(1)}% <span style="color:var(--text-faint);font-size:18px;">·</span> ${m.capRate.toFixed(2)}%</div>
-        <div class="sub">${fmt(m.downPayment)} down (${p.downPct.toFixed(1)}%)</div>
+        <div class="sub">${fmt(m.cashIn)} cash in · ${fmt(m.downPayment)} down + ${fmt(m.closingCosts)} closing</div>
       </div>
     </div>`;
 
@@ -2254,7 +2265,8 @@ function update(p) {
     <div class="line-item"><span class="label">Maintenance (${p.maint}%)</span><span class="value">${fmt(m.maintCost)}</span></div>
     <div class="line-item"><span class="label">CapEx Reserve (${p.capex}%)</span><span class="value">${fmt(m.capexCost)}</span></div>
     <div class="line-item total"><span class="label">Net Operating Income</span><span class="value">${fmt(m.noi)}</span></div>
-    <div class="line-item" style="margin-top:12px;"><span class="label">Annual Debt Service<span class="sub">${fmt(m.monthlyPI)}/mo P&I · ${p.rate}% / ${p.term}yr · ${fmt(m.loanAmt)} loan</span></span><span class="value">${fmt(m.annualDebt)}</span></div>`;
+    <div class="line-item" style="margin-top:12px;"><span class="label">Annual Debt Service<span class="sub">${fmt(m.monthlyPI)}/mo P&I · ${p.rate}% / ${p.term}yr · ${fmt(m.loanAmt)} loan</span></span><span class="value">${fmt(m.annualDebt)}</span></div>
+    <div class="line-item"><span class="label">Cash to Close<span class="sub">${fmt(m.downPayment)} down (${p.downPct.toFixed(1)}%) + ${fmt(m.closingCosts)} closing (${p.closingPct}%)</span></span><span class="value">${fmt(m.cashIn)}</span></div>`;
 
   renderSaveRow(p, m);
 }
@@ -2382,7 +2394,9 @@ function saveReportPdf() {
           <table>
             <tr><td>Purchase price</td><td>${fmt(p.price)}</td></tr>
             <tr><td>Cash down <span class="note">${p.downPct.toFixed(1)}%</span></td><td>${fmt(m.downPayment)}</td></tr>
-            <tr class="tot"><td>Loan amount</td><td>${fmt(m.loanAmt)}</td></tr>
+            <tr><td>Closing costs <span class="note">${p.closingPct}%</span></td><td>${fmt(m.closingCosts)}</td></tr>
+            <tr class="tot"><td>Total cash to close</td><td>${fmt(m.cashIn)}</td></tr>
+            <tr><td>Loan amount</td><td>${fmt(m.loanAmt)}</td></tr>
             <tr><td>Rate / term</td><td>${p.rate}% · ${p.term} yr</td></tr>
             <tr><td>Monthly P&amp;I</td><td>${fmt(m.monthlyPI)}</td></tr>
             <tr><td>Annual debt service</td><td>${fmt(m.annualDebt)}</td></tr>
@@ -2571,9 +2585,9 @@ function snapshotDeal(status) {
 
 // Same math as the analyzer, run on a saved record.
 function dealModel(d) {
-  const p = { ...d.inputs, taxRate: d.taxRate, target: targetDscr };
+  const p = { ...d.inputs, taxRate: d.taxRate, target: targetDscr, closingPct: pf.closingPct || 0 };
   const m = model(p, d.rent || 0);
-  const cashIn = m.downPayment + p.price * (pf.closingPct || 0) / 100;
+  const cashIn = m.cashIn;
   const opexAnnual = m.annualTax + m.annualIns + m.vacancyLoss + m.mgmtCost + m.maintCost + m.capexCost;
   return { p, m, cashIn, monthlyExp: (opexAnnual + m.annualDebt) / 12, opexAnnual, cfMo: m.cashFlow / 12, rent: d.rent || 0 };
 }
@@ -2856,7 +2870,21 @@ function importDeals() {
 }
 
 [['pfCash', 'cash'], ['pfClosing', 'closingPct'], ['pfApp', 'app'], ['pfRg', 'rg']].forEach(([id, k]) => {
-  $(id).addEventListener('input', e => { const v = parseFloat(e.target.value); if (isFinite(v)) { pf[k] = v; savePfSettings(); renderPortfolio(); } });
+  $(id).addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    if (!isFinite(v)) return;
+    pf[k] = v; savePfSettings(); renderPortfolio();
+    if (k === 'closingPct') { $('closingPct').value = v; recalc(); }
+  });
+});
+// Closing costs: one setting shared by the Analyze sidebar and the Potential Portfolio tab
+$('closingPct').value = pf.closingPct;
+$('closingPct').addEventListener('input', e => {
+  const v = parseFloat(e.target.value);
+  if (!isFinite(v) || v < 0) return;
+  pf.closingPct = v; savePfSettings();
+  if (document.activeElement !== $('pfClosing')) $('pfClosing').value = v;
+  recalc();
 });
 updateTabCount();
 if (location.hash === '#portfolio') switchView('portfolio');
