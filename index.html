@@ -1240,7 +1240,7 @@
         <div class="preview-stats" id="previewStats"></div>
         <div class="preview-desc" id="previewDesc"></div>
       </div>
-      <a class="preview-link" id="previewLink" href="#" target="_blank" rel="noopener">View on Zillow ↗</a>
+      <a class="preview-link" id="previewLink" href="#" target="_blank" rel="noopener">Open listing in Zillow ↗</a>
     </div>
   </div>
 </section>
@@ -2530,6 +2530,16 @@ const normAddr = a => String(a || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const statusLabel = s => s === 'portfolio' ? 'Potential Portfolio' : 'Watching';
 const shortDate = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 
+// Zillow link for a deal: the saved listing URL, or a Zillow address search for manually entered deals.
+function zillowUrlFor(listing, address) {
+  if (listing && listing.url && /^https:\/\/([\w-]+\.)*zillow\.com\//i.test(listing.url)) return listing.url;
+  const a = String(address || '').trim();
+  return a ? `https://www.zillow.com/homes/${encodeURIComponent(a)}_rb/` : null;
+}
+function openZillow(url) { if (url) window.open(url, '_blank', 'noopener'); }
+const zillowBtn = (url, style = '') => url
+  ? `<button class="secondary" style="${style}" onclick="openZillow(${escapeHtml(JSON.stringify(url))})">Open listing in Zillow ↗</button>` : '';
+
 function snapshotDeal(status) {
   const p = readInputs();
   return {
@@ -2613,7 +2623,7 @@ function renderSaveRow(p, m) {
         <button class="secondary" onclick="saveDeal('watching')">Save to watching</button>
       </div>`;
   }
-  el.innerHTML = html + flashHtml;
+  el.innerHTML = html + flashHtml + zillowBtn(zillowUrlFor(currentListing, p.address), 'margin-top:0');
 }
 
 function openDeal(id) {
@@ -2747,6 +2757,7 @@ function renderPortfolio() {
             <div class="pf-rentbar" aria-hidden="true">${bar}</div>
             <div class="pf-actions">
               <button class="secondary" onclick="openDeal('${d.id}')">Open in analyzer</button>
+              ${zillowBtn(zillowUrlFor(d.listing, I.address))}
               <button class="secondary" onclick="setDealStatus('${d.id}','${other}')">${other === 'portfolio' ? 'Add to Potential Portfolio' : 'Move to watching'}</button>
               <button class="secondary danger" onclick="removeDeal('${d.id}')">Remove</button>
             </div>
