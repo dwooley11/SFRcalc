@@ -15,6 +15,7 @@ Investment property cash flow underwriting tool. Everything updates live as you 
 - **Live sliders** for price and rent — DSCR, cash flow, cap rate, and CoC update in real time
 - **Fully adjustable financing** — cash down / down %, rate, term
 - **Operating expense controls** — vacancy, management, maintenance, CapEx reserve
+- **Saved deals + Portfolio tab** — *Add to portfolio* or *Save to watching* from any analysis. The Portfolio tab totals every In-portfolio deal against your cash to deploy (down + closing costs), shows cost, loan, monthly expense, rent, cash flow and DSCR per property, and charts a 10-year wealth build. *Open in analyzer* reloads a deal with all its numbers; saving again updates it. Deals live in this browser; copy/paste a backup to move them to another device.
 - **No backend** — pure HTML/JS, deploys as static site
 - **Local storage** — settings persist in your browser
 

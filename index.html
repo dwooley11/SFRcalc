@@ -1004,6 +1004,100 @@
     .breakdown, .sliders, .solve-grid { grid-template-columns: 1fr; }
   }
 
+
+  /* ───────── VIEW TABS + SAVE ROW + PORTFOLIO ───────── */
+  [hidden] { display: none !important; }
+  .view-tabs { max-width: 1100px; margin: 0 auto 8px; padding: 0 56px; display: flex; gap: 6px; border-bottom: 1px solid var(--border); }
+  .view-tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-dim); padding: 10px 14px; margin-bottom: -1px;
+    font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; cursor: pointer; }
+  .view-tab:hover { color: var(--text); }
+  .view-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .view-tab:focus-visible, .pf-chip:focus-visible, .save-row button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tab-count { display: inline-block; min-width: 20px; padding: 1px 6px; margin-left: 4px; border-radius: 999px; background: rgba(201,168,107,0.16); color: var(--accent); font-size: 10px; text-align: center; }
+  .tab-count:empty { display: none; }
+
+  .save-row { margin-top: 22px; display: grid; gap: 8px; }
+  .save-row .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .save-row .btns button { margin-top: 0; }
+  .save-row .btns button.primary { width: 100%; }
+  .save-note { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em; }
+  .save-note strong { color: var(--accent); font-weight: 500; }
+  .save-flash { font-size: 12.5px; color: var(--green); }
+  .save-flash button { background: none; border: none; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
+
+  .pf { max-width: 1100px; margin: 0 auto; padding: 24px 56px 80px; display: grid; gap: 18px; }
+  .pf-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px 28px; flex-wrap: wrap; }
+  .pf-title { font-family: var(--font-display); font-weight: 500; font-size: 34px; letter-spacing: -0.01em; }
+  .pf-sub { color: var(--text-dim); max-width: 60ch; margin-top: 4px; }
+  .pf-sub strong { color: var(--text); font-weight: 600; }
+  .pf-settings { display: flex; gap: 10px; flex-wrap: wrap; }
+  .pf-settings label { display: grid; gap: 4px; font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.12em; }
+  .pf-settings input { width: 150px; background: var(--bg-deep); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px 10px; font-family: var(--font-mono); font-size: 14px; text-align: right; }
+  .pf-settings.small input { width: 110px; font-size: 13px; padding: 6px 8px; }
+  .pf-settings input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .pf-deploy { display: grid; gap: 6px; }
+  .pf-deploy .meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 12.5px; color: var(--text-dim); }
+  .pf-deploy .meta strong { color: var(--text); font-family: var(--font-mono); font-weight: 500; }
+  .pf-bar { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .pf-bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+  .pf-bar.over i { background: var(--red); }
+  .pf-pill { display: inline-block; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+  .pf-pill.good { background: rgba(109,212,154,0.14); color: var(--green); }
+  .pf-pill.warn { background: rgba(251,191,36,0.14); color: var(--amber); }
+  .pf-pill.bad { background: rgba(248,113,113,0.14); color: var(--red); }
+  .pf-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+  .pf-tile { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .pf-tile.lead { border-color: var(--accent-dim); background: rgba(201,168,107,0.06); }
+  .pf-tile .k { font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.12em; }
+  .pf-tile .v { font-family: var(--font-display); font-size: 24px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .pf-tile .s { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+  .pf-filter { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pf-chip { background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 999px; padding: 7px 14px; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; }
+  .pf-chip.active { border-color: var(--accent); color: var(--accent); background: rgba(201,168,107,0.08); }
+  .pf-list { display: grid; gap: 12px; }
+  .pf-card { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--green); border-radius: 12px; padding: 14px; display: grid; grid-template-columns: 112px minmax(0,1fr); gap: 14px; }
+  .pf-card.negcf { border-left-color: var(--red); }
+  .pf-card.noimg { grid-template-columns: minmax(0,1fr); }
+  .pf-card.editing { box-shadow: 0 0 0 1px var(--accent); }
+  .pf-thumb { width: 112px; height: 84px; object-fit: cover; border-radius: 8px; background: var(--bg-deep); }
+  .pf-body { display: grid; gap: 10px; min-width: 0; }
+  .pf-top { display: flex; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; align-items: flex-start; }
+  .pf-addr { font-family: var(--font-display); font-size: 18px; font-weight: 500; line-height: 1.2; }
+  .pf-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-top: 3px; }
+  .pf-nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px 12px; }
+  .pf-nums div { display: grid; }
+  .pf-nums span { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.1em; }
+  .pf-nums b { font-family: var(--font-mono); font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .pf-rentbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.06); }
+  .pf-rentbar i { display: block; height: 100%; }
+  .pf-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pf-actions button { width: auto; margin-top: 0; padding: 7px 12px; }
+  .pf-actions button.danger:hover { border-color: var(--red); color: var(--red); }
+  .pf-empty { border: 1px dashed var(--border-strong); border-radius: 12px; padding: 28px; text-align: center; color: var(--text-dim); }
+  .pf-chart-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pf-chart-head h3 { margin-bottom: 0; }
+  .pf-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-dim); margin-top: 8px; }
+  .pf-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .pf-chart svg { width: 100%; height: auto; display: block; }
+  .pf-chart-total { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+  .pf-chart-total strong { color: var(--accent); font-weight: 500; }
+  .pf-backup { color: var(--text-dim); font-size: 13px; }
+  .pf-backup summary { cursor: pointer; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .pf-backup textarea { width: 100%; margin-top: 8px; background: var(--bg-deep); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px; font-family: var(--font-mono); font-size: 12px; }
+  .pf-backup-row { display: flex; gap: 8px; }
+  .pf-backup-row button, .pf-backup > button { width: auto; padding: 8px 14px; }
+  @media (max-width: 980px) {
+    .view-tabs, .pf { padding-left: 24px; padding-right: 24px; }
+    .pf-title { font-size: 28px; }
+  }
+  @media (max-width: 560px) {
+    .pf-card { grid-template-columns: minmax(0,1fr); }
+    .pf-thumb { width: 100%; height: 150px; }
+    .pf-settings label { flex: 1 1 140px; }
+    .pf-settings input { width: 100%; }
+  }
+
   /* ───────── PDF REPORT (print-only) ───────── */
   .pdf-btn { width: 100%; margin-top: 22px; }
   #printReport { display: none; }
@@ -1054,6 +1148,12 @@
   </div>
 </header>
 
+<nav class="view-tabs" role="tablist" aria-label="Views">
+  <button class="view-tab active" role="tab" id="tabAnalyze" aria-selected="true" onclick="switchView('analyze')">Analyze</button>
+  <button class="view-tab" role="tab" id="tabPortfolio" aria-selected="false" onclick="switchView('portfolio')">Portfolio <span class="tab-count" id="pfCount"></span></button>
+</nav>
+
+<div id="analyzeView">
 <!-- ─── HERO / ENTRY ─── -->
 <section class="hero" id="hero">
   <h1>Analyze a Zillow listing<br><span class="gold">in one tap.</span></h1>
@@ -1264,6 +1364,47 @@
 
   <section class="content" id="content"></section>
 </div>
+</div><!-- /analyzeView -->
+
+<!-- ─── PORTFOLIO VIEW ─── -->
+<section class="pf" id="portfolioView" hidden>
+  <div class="pf-head">
+    <div>
+      <h2 class="pf-title">Portfolio</h2>
+      <p class="pf-sub">Deals you've saved from the analyzer. Totals count only deals marked <strong>In portfolio</strong>; <strong>Watching</strong> deals are parked here without using your cash.</p>
+    </div>
+    <div class="pf-settings">
+      <label>Cash to deploy<input type="number" id="pfCash" step="10000" inputmode="numeric"></label>
+      <label>Closing costs %<input type="number" id="pfClosing" step="0.25" inputmode="decimal"></label>
+    </div>
+  </div>
+  <div id="pfSummary"></div>
+  <div class="pf-filter" role="tablist" aria-label="Deal status">
+    <button class="pf-chip" data-filter="portfolio" onclick="setPfFilter('portfolio')">In portfolio <span id="pfNumP"></span></button>
+    <button class="pf-chip" data-filter="watching" onclick="setPfFilter('watching')">Watching <span id="pfNumW"></span></button>
+  </div>
+  <div class="pf-list" id="pfList"></div>
+  <div class="breakdown-card pf-chart-card" id="pfChartCard">
+    <div class="pf-chart-head">
+      <h3>10-year wealth build</h3>
+      <div class="pf-settings small">
+        <label>Appreciation %/yr<input type="number" id="pfApp" step="0.5" inputmode="decimal"></label>
+        <label>Rent &amp; expense growth %/yr<input type="number" id="pfRg" step="0.5" inputmode="decimal"></label>
+      </div>
+    </div>
+    <div id="pfChart"></div>
+  </div>
+  <details class="pf-backup">
+    <summary>Back up or move deals to another device</summary>
+    <p class="help-text" style="font-style:normal;">Deals are saved in this browser only. Copy a backup here and paste it on another device to bring them over.</p>
+    <div class="pf-backup-row">
+      <button class="secondary" onclick="exportDeals(this)">Copy backup</button>
+    </div>
+    <textarea id="pfImport" rows="3" placeholder="Paste a backup here…"></textarea>
+    <button class="secondary" onclick="importDeals()">Import backup</button>
+    <div class="help-text" id="pfImportMsg" style="font-style:normal;"></div>
+  </details>
+</section>
 
 <!-- Settings Modal -->
 <div class="modal-backdrop" id="settingsModal">
@@ -1989,7 +2130,8 @@ function buildShell(p) {
       <div class="breakdown-card"><h3>Expenses & Debt Service</h3><div id="expenseLines"></div></div>
     </div>
 
-    <button class="primary pdf-btn" onclick="saveReportPdf()">Save Report as PDF</button>
+    <div class="save-row" id="saveRow"></div>
+    <button class="secondary pdf-btn" onclick="saveReportPdf()">Save Report as PDF</button>
   `;
 
   $('rentSlider').addEventListener('input', e => { rentVal = parseFloat(e.target.value); recalc(); });
@@ -2101,6 +2243,8 @@ function update(p) {
     <div class="line-item"><span class="label">CapEx Reserve (${p.capex}%)</span><span class="value">${fmt(m.capexCost)}</span></div>
     <div class="line-item total"><span class="label">Net Operating Income</span><span class="value">${fmt(m.noi)}</span></div>
     <div class="line-item" style="margin-top:12px;"><span class="label">Annual Debt Service<span class="sub">${fmt(m.monthlyPI)}/mo P&I · ${p.rate}% / ${p.term}yr · ${fmt(m.loanAmt)} loan</span></span><span class="value">${fmt(m.annualDebt)}</span></div>`;
+
+  renderSaveRow(p, m);
 }
 
 // ───────── ACTIONS ─────────
@@ -2168,6 +2312,7 @@ function resetAll() {
   $('setupToggle').style.display = 'none';
   parsedTaxData = null;
   currentListing = null;
+  editingDealId = null;
   ui = null;
   rentVal = null;
   $('lastCalc').textContent = 'Awaiting input';
@@ -2303,6 +2448,8 @@ function importFromHash() {
     return;
   }
   history.replaceState(null, '', location.pathname + location.search);
+  editingDealId = null;
+  switchView('analyze');
   const n = v => (typeof v === 'number' && isFinite(v) && v > 0) ? v : null;
   const str = v => (v == null ? '' : String(v));
 
@@ -2347,6 +2494,340 @@ function importFromHash() {
   recalc();
   setTimeout(() => document.getElementById('previewWrap').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 }
+
+// ───────── SAVED DEALS + PORTFOLIO ─────────
+// Each saved deal is one flat record (inputs + rent + listing snapshot), so the list can
+// later move to a hosted database row-for-row. Stored in this browser under 'sfr-deals-v1'.
+const DEALS_KEY = 'sfr-deals-v1', PF_KEY = 'sfr-portfolio-settings';
+let deals = loadDeals();
+let editingDealId = null;
+let saveFlash = '';
+let saveFlashTimer = null;
+let pf = loadPfSettings();
+
+function loadDeals() {
+  try { const d = JSON.parse(localStorage.getItem(DEALS_KEY) || '[]'); return Array.isArray(d) ? d : []; }
+  catch (e) { return []; }
+}
+function persistDeals() {
+  try { localStorage.setItem(DEALS_KEY, JSON.stringify(deals)); } catch (e) {}
+  updateTabCount();
+}
+function loadPfSettings() {
+  const def = { cash: 600000, closingPct: 2.5, app: 3, rg: 3, filter: 'portfolio' };
+  try { return { ...def, ...JSON.parse(localStorage.getItem(PF_KEY) || '{}') }; } catch (e) { return def; }
+}
+function savePfSettings() { try { localStorage.setItem(PF_KEY, JSON.stringify(pf)); } catch (e) {} }
+const newDealId = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const normAddr = a => String(a || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const statusLabel = s => s === 'portfolio' ? 'In portfolio' : 'Watching';
+const shortDate = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+
+function snapshotDeal(status) {
+  const p = readInputs();
+  return {
+    id: null, status, savedAt: Date.now(), updatedAt: Date.now(),
+    inputs: {
+      address: p.address, sqft: p.sqft, zip: p.zip, price: p.price,
+      downPct: p.downPct, downMode, rate: p.rate, term: p.term,
+      vacancy: p.vacancy, mgmt: p.mgmt, maint: p.maint, capex: p.capex
+    },
+    rent: rentVal, taxRate: p.taxRate, taxSource: p.taxSource,
+    tax: parsedTaxData, listing: currentListing
+  };
+}
+
+// Same math as the analyzer, run on a saved record.
+function dealModel(d) {
+  const p = { ...d.inputs, taxRate: d.taxRate, target: targetDscr };
+  const m = model(p, d.rent || 0);
+  const cashIn = m.downPayment + p.price * (pf.closingPct || 0) / 100;
+  const opexAnnual = m.annualTax + m.annualIns + m.vacancyLoss + m.mgmtCost + m.maintCost + m.capexCost;
+  return { p, m, cashIn, monthlyExp: (opexAnnual + m.annualDebt) / 12, opexAnnual, cfMo: m.cashFlow / 12, rent: d.rent || 0 };
+}
+
+function matchingDeal(address) {
+  const a = normAddr(address);
+  return a ? deals.find(d => normAddr(d.inputs.address) === a) : null;
+}
+
+function saveDeal(status, opts = {}) {
+  if (!ui) return;
+  const snap = snapshotDeal(status);
+  const targetId = opts.asNew ? null : (opts.id || editingDealId);
+  const i = targetId ? deals.findIndex(d => d.id === targetId) : -1;
+  if (i >= 0) {
+    snap.id = deals[i].id; snap.savedAt = deals[i].savedAt;
+    if (!status) snap.status = deals[i].status;
+    deals[i] = snap;
+    flash(`Updated · ${statusLabel(snap.status)}`);
+  } else {
+    snap.id = newDealId(); snap.status = status || 'portfolio';
+    deals.push(snap);
+    flash(snap.status === 'portfolio' ? 'Added to portfolio' : 'Saved to watching');
+  }
+  editingDealId = snap.id;
+  persistDeals();
+  recalc();
+}
+
+function flash(msg) {
+  saveFlash = msg;
+  clearTimeout(saveFlashTimer);
+  saveFlashTimer = setTimeout(() => { saveFlash = ''; if (ui) recalc(); }, 6000);
+}
+
+function renderSaveRow(p, m) {
+  const el = $('saveRow');
+  if (!el) return;
+  const cur = editingDealId ? deals.find(d => d.id === editingDealId) : null;
+  if (editingDealId && !cur) editingDealId = null;
+  const match = !cur ? matchingDeal(p.address) : null;
+  const flashHtml = saveFlash
+    ? `<div class="save-flash">✓ ${escapeHtml(saveFlash)} · <button onclick="switchView('portfolio')">View portfolio →</button></div>` : '';
+  let html;
+  if (cur) {
+    const other = cur.status === 'portfolio' ? 'watching' : 'portfolio';
+    html = `<div class="save-note">Saved deal · <strong>${statusLabel(cur.status)}</strong> · saved ${shortDate(cur.savedAt)}</div>
+      <div class="btns">
+        <button class="primary" onclick="saveDeal(null)">Update saved deal</button>
+        <button class="secondary" onclick="saveDeal('${other}')">${other === 'portfolio' ? 'Move to portfolio' : 'Move to watching'}</button>
+      </div>
+      <button class="secondary" style="margin-top:0" onclick="saveDeal('${cur.status}', {asNew:true})">Save as a new copy</button>`;
+  } else if (match) {
+    html = `<div class="save-note">You saved this address on ${shortDate(match.savedAt)} (<strong>${statusLabel(match.status)}</strong>).</div>
+      <div class="btns">
+        <button class="primary" onclick="saveDeal(null, {id:'${match.id}'})">Update that deal</button>
+        <button class="secondary" onclick="saveDeal('portfolio', {asNew:true})">Save as new</button>
+      </div>`;
+  } else {
+    html = `<div class="btns">
+        <button class="primary" onclick="saveDeal('portfolio')">Add to portfolio</button>
+        <button class="secondary" onclick="saveDeal('watching')">Save to watching</button>
+      </div>`;
+  }
+  el.innerHTML = html + flashHtml;
+}
+
+function openDeal(id) {
+  const d = deals.find(x => x.id === id);
+  if (!d) return;
+  const I = d.inputs;
+  editingDealId = id;
+  currentListing = d.listing || null;
+  parsedTaxData = d.tax || null;
+  ['address', 'sqft', 'zip', 'price', 'rate', 'term', 'vacancy', 'mgmt', 'maint', 'capex'].forEach(k => { $(k).value = I[k] ?? ''; });
+  downMode = I.downMode || 'pct';
+  $('downPct').value = Math.round(I.downPct * 10) / 10;
+  $('downCash').value = Math.round(I.price * I.downPct / 100);
+  $('zillowPaste').value = '';
+  const banner = $('taxSource');
+  if (parsedTaxData) {
+    banner.style.display = 'block';
+    banner.innerHTML = `✓ Tax: <strong>${escapeHtml(parsedTaxData.year)}</strong> bill of $${Math.round(parsedTaxData.tax).toLocaleString()} on $${Math.round(parsedTaxData.assessed).toLocaleString()} → <strong>${parsedTaxData.rate.toFixed(3)}%</strong>`;
+  } else banner.style.display = 'none';
+  if (currentListing) renderPreview(currentListing); else $('previewWrap').style.display = 'none';
+  const st = $('entryStatus');
+  st.className = 'entry-status ok';
+  st.textContent = `✓ Opened saved deal from ${shortDate(d.savedAt)}.`;
+  collapseSetup();
+  showApp();
+  ui = null; rentVal = d.rent;
+  saveFlash = '';
+  switchView('analyze');
+  recalc();
+  setTimeout(() => ($('dscrHero') || $('content')).scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+}
+
+function setDealStatus(id, status) {
+  const d = deals.find(x => x.id === id);
+  if (!d) return;
+  d.status = status; d.updatedAt = Date.now();
+  persistDeals(); renderPortfolio();
+}
+function removeDeal(id) {
+  const d = deals.find(x => x.id === id);
+  if (!d || !confirm(`Remove ${d.inputs.address || 'this deal'}?`)) return;
+  deals = deals.filter(x => x.id !== id);
+  if (editingDealId === id) editingDealId = null;
+  persistDeals(); renderPortfolio();
+}
+
+function switchView(v) {
+  const port = v === 'portfolio';
+  $('analyzeView').hidden = port;
+  $('portfolioView').hidden = !port;
+  $('tabAnalyze').classList.toggle('active', !port);
+  $('tabPortfolio').classList.toggle('active', port);
+  $('tabAnalyze').setAttribute('aria-selected', String(!port));
+  $('tabPortfolio').setAttribute('aria-selected', String(port));
+  if (port) { renderPortfolio(); window.scrollTo({ top: 0 }); }
+  else if (ui) recalc();
+}
+function updateTabCount() {
+  const n = deals.filter(d => d.status === 'portfolio').length;
+  $('pfCount').textContent = n ? n : '';
+}
+function setPfFilter(f) { pf.filter = f; savePfSettings(); renderPortfolio(); }
+
+const RB = { pi: '#c9a86b', tax: '#7d8a82', ins: '#a9b5ad', vac: '#8c7547', var: '#5f7a6c' };
+function renderPortfolio() {
+  [['pfCash', pf.cash], ['pfClosing', pf.closingPct], ['pfApp', pf.app], ['pfRg', pf.rg]].forEach(([id, v]) => { if (document.activeElement !== $(id)) $(id).value = v; });
+  const rowsAll = deals.map(d => ({ d, r: dealModel(d) }));
+  const rows = rowsAll.filter(x => x.d.status === 'portfolio');
+  const watching = rowsAll.filter(x => x.d.status !== 'portfolio');
+  $('pfNumP').textContent = `(${rows.length})`; $('pfNumW').textContent = `(${watching.length})`;
+  document.querySelectorAll('.pf-chip').forEach(b => {
+    const on = b.dataset.filter === pf.filter;
+    b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on));
+  });
+
+  // summary (In portfolio only)
+  const S = f => rows.reduce((s, x) => s + f(x.r), 0);
+  const cashIn = S(r => r.cashIn), value = S(r => r.p.price), debt = S(r => r.m.loanAmt);
+  const rent = S(r => r.rent), exp = S(r => r.monthlyExp), cf = S(r => r.cfMo);
+  const noi = S(r => r.m.noi), ads = S(r => r.m.annualDebt);
+  const coc = cashIn > 0 ? cf * 12 / cashIn * 100 : 0, dscr = ads > 0 ? noi / ads : Infinity;
+  const left = pf.cash - cashIn, over = left < -1;
+  const pill = over ? `<span class="pf-pill bad">Over by ${fmt(-left)}</span>`
+    : left < 1 && rows.length ? `<span class="pf-pill good">Fully deployed</span>`
+    : `<span class="pf-pill warn">${fmt(left)} left to deploy</span>`;
+  const sgn = v => `${v < 0 ? '−' : ''}${fmt(Math.abs(v))}`;
+  $('pfSummary').innerHTML = `
+    <div class="pf-deploy">
+      <div class="meta"><span>Cash in (down + ${pf.closingPct}% closing): <strong>${fmt(cashIn)}</strong> of ${fmt(pf.cash)}</span>${pill}</div>
+      <div class="pf-bar ${over ? 'over' : ''}"><i style="width:${Math.min(100, pf.cash > 0 ? cashIn / pf.cash * 100 : 0)}%"></i></div>
+    </div>
+    <div class="pf-tiles">
+      <div class="pf-tile lead"><div class="k">Cash flow / mo</div><div class="v ${cf >= 0 ? 'pos' : 'neg'}">${sgn(cf)}</div><div class="s">${sgn(cf * 12)} / yr</div></div>
+      <div class="pf-tile"><div class="k">Properties</div><div class="v">${rows.length}</div><div class="s">${fmt(value)} value</div></div>
+      <div class="pf-tile"><div class="k">Total debt</div><div class="v">${fmt(debt)}</div><div class="s">${fmt(ads / 12)}/mo P&amp;I</div></div>
+      <div class="pf-tile"><div class="k">Rent / mo</div><div class="v">${fmt(rent)}</div><div class="s">vs ${fmt(exp)} expense</div></div>
+      <div class="pf-tile"><div class="k">Cash-on-cash</div><div class="v ${coc >= 0 ? 'pos' : 'neg'}">${coc.toFixed(1)}%</div><div class="s">DSCR ${isFinite(dscr) ? dscr.toFixed(2) + 'x' : '—'}</div></div>
+    </div>`;
+
+  // list
+  const shown = pf.filter === 'portfolio' ? rows : watching;
+  $('pfList').innerHTML = !shown.length
+    ? `<div class="pf-empty">${pf.filter === 'portfolio'
+        ? 'No properties in the portfolio yet. Run a deal on the <strong>Analyze</strong> tab and tap <strong>Add to portfolio</strong>.'
+        : 'Nothing on your watch list. Use <strong>Save to watching</strong> on the Analyze tab for deals you want to keep without counting them against your cash.'}</div>`
+    : shown.map(({ d, r }) => {
+        const L = d.listing || {}, I = r.p, m = r.m;
+        const facts = [L.beds && `${L.beds} bd`, L.baths && `${L.baths} ba`, I.sqft && `${Math.round(I.sqft).toLocaleString()} sqft`, I.zip && `ZIP ${escapeHtml(I.zip)}`].filter(Boolean).join(' · ');
+        const scale = Math.max(r.monthlyExp, r.rent, 1) / 100;
+        const seg = (v, c, t) => v > 0 ? `<i style="width:${v / 12 / scale}%;background:${c}" title="${t}"></i>` : '';
+        const bar = seg(m.annualDebt, RB.pi, 'P&I') + seg(m.annualTax, RB.tax, 'Tax') + seg(m.annualIns, RB.ins, 'Insurance')
+          + seg(m.vacancyLoss, RB.vac, 'Vacancy') + seg(m.mgmtCost + m.maintCost + m.capexCost, RB.var, 'Mgmt, maint, CapEx')
+          + (r.cfMo > 0 ? `<i style="width:${r.cfMo / scale}%;background:var(--green)" title="Cash flow"></i>` : '');
+        const other = d.status === 'portfolio' ? 'watching' : 'portfolio';
+        return `<article class="pf-card ${r.cfMo < 0 ? 'negcf' : ''} ${L.image ? '' : 'noimg'} ${d.id === editingDealId ? 'editing' : ''}">
+          ${L.image ? `<img class="pf-thumb" src="${escapeHtml(L.image)}" alt="" loading="lazy">` : ''}
+          <div class="pf-body">
+            <div class="pf-top">
+              <div><div class="pf-addr">${escapeHtml(I.address || 'Unnamed property')}</div>
+                <div class="pf-meta">${facts}${facts ? ' · ' : ''}Tax ${(+d.taxRate).toFixed(2)}% · ${I.downPct.toFixed(0)}% down · ${I.rate}% / ${I.term}yr · saved ${shortDate(d.savedAt)}</div></div>
+            </div>
+            <div class="pf-nums">
+              <div><span>Cost</span><b>${fmt(I.price)}</b></div>
+              <div><span>Cash in</span><b>${fmt(r.cashIn)}</b></div>
+              <div><span>Loan</span><b>${fmt(m.loanAmt)}</b></div>
+              <div><span>Monthly expense</span><b>${fmt(r.monthlyExp)}</b></div>
+              <div><span>Rent</span><b>${fmt(r.rent)}</b></div>
+              <div><span>Cash flow</span><b class="${r.cfMo >= 0 ? 'pos' : 'neg'}">${sgn(r.cfMo)}</b></div>
+              <div><span>DSCR</span><b>${isFinite(m.dscr) ? m.dscr.toFixed(2) + 'x' : '—'}</b></div>
+            </div>
+            <div class="pf-rentbar" aria-hidden="true">${bar}</div>
+            <div class="pf-actions">
+              <button class="secondary" onclick="openDeal('${d.id}')">Open in analyzer</button>
+              <button class="secondary" onclick="setDealStatus('${d.id}','${other}')">${other === 'portfolio' ? 'Add to portfolio' : 'Move to watching'}</button>
+              <button class="secondary danger" onclick="removeDeal('${d.id}')">Remove</button>
+            </div>
+          </div>
+        </article>`;
+      }).join('');
+
+  $('pfChartCard').hidden = rows.length === 0;
+  if (rows.length) drawWealthChart(rows);
+}
+
+function loanBalance(L, ratePct, years, months) {
+  if (L <= 0) return 0;
+  const r = ratePct / 100 / 12, P = pmt(L, ratePct, years);
+  if (r === 0) return Math.max(0, L - P * months);
+  return Math.max(0, L * Math.pow(1 + r, months) - P * (Math.pow(1 + r, months) - 1) / r);
+}
+
+function drawWealthChart(rows) {
+  const g = (pf.rg || 0) / 100, ap = (pf.app || 0) / 100;
+  const cashIn = rows.reduce((s, x) => s + x.r.cashIn, 0), value = rows.reduce((s, x) => s + x.r.p.price, 0);
+  const years = [...Array(11).keys()];
+  let cum = 0;
+  const data = years.map(y => {
+    if (y > 0) cum += rows.reduce((s, { r }) => s + (r.rent * 12 - r.opexAnnual) * Math.pow(1 + g, y - 1) - r.m.annualDebt, 0);
+    const pay = rows.reduce((s, { r }) => s + (r.m.loanAmt - loanBalance(r.m.loanAmt, r.p.rate, r.p.term, y * 12)), 0);
+    return { y, base: cashIn, pay, appr: value * (Math.pow(1 + ap, y) - 1), cf: cum };
+  });
+  const W = Math.max(320, Math.min(720, $('pfChart').clientWidth || 640)), H = W < 480 ? 230 : 260, padL = 54, padR = 6, padT = 10, padB = 26;
+  const maxV = Math.max(...data.map(d => d.base + d.pay + d.appr + Math.max(0, d.cf)));
+  const minV = Math.min(0, ...data.map(d => d.cf));
+  const niceStep = v => { const e = Math.pow(10, Math.floor(Math.log10(v))); const f = v / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * e; };
+  const step = niceStep((maxV - minV) / 4 || 1);
+  const top = Math.ceil(maxV / step) * step, bot = Math.floor(minV / step) * step;
+  const Y = v => padT + (top - v) / (top - bot) * (H - padT - padB);
+  const bw = (W - padL - padR) / data.length, barW = bw * 0.62;
+  const X = i => padL + i * bw + (bw - barW) / 2;
+  const kfmt = v => { const a = Math.abs(v), s = v < 0 ? '−$' : '$'; return a >= 1e6 ? s + (a / 1e6).toFixed(1) + 'M' : s + Math.round(a / 1e3) + 'K'; };
+  const C = { base: '#5f7a6c', pay: '#c9a86b', appr: '#8c7547', cfp: '#6dd49a', cfn: '#f87171' };
+  let svg = '';
+  for (let v = bot; v <= top + 1e-6; v += step) {
+    svg += `<line x1="${padL}" x2="${W - padR}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(255,255,255,${v === 0 ? 0.25 : 0.07})"/>`
+      + `<text x="${padL - 8}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="#7d8a82" font-family="JetBrains Mono, monospace">${kfmt(v)}</text>`;
+  }
+  data.forEach((d, i) => {
+    let acc = 0;
+    const segs = [['base', d.base], ['pay', d.pay], ['appr', d.appr]];
+    if (d.cf > 0) segs.push(['cfp', d.cf]);
+    segs.forEach(([k, v]) => { if (v <= 0) return; svg += `<rect x="${X(i)}" y="${Y(acc + v)}" width="${barW}" height="${Math.max(0, Y(acc) - Y(acc + v))}" fill="${C[k]}"/>`; acc += v; });
+    if (d.cf < 0) svg += `<rect x="${X(i)}" y="${Y(0)}" width="${barW}" height="${Y(d.cf) - Y(0)}" fill="${C.cfn}"/>`;
+    if (W >= 480 || i % 2 === 0) svg += `<text x="${X(i) + barW / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#7d8a82" font-family="JetBrains Mono, monospace">${i === 0 ? 'Now' : 'Yr ' + d.y}</text>`;
+  });
+  const last = data[10];
+  const total = last.base + last.pay + last.appr + last.cf;
+  $('pfChart').innerHTML = `<div class="pf-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="10-year wealth build by year">${svg}</svg></div>
+    <div class="pf-legend">
+      <span><i style="background:${C.base}"></i>Cash invested</span><span><i style="background:${C.pay}"></i>Principal paydown</span>
+      <span><i style="background:${C.appr}"></i>Appreciation</span><span><i style="background:${last.cf >= 0 ? C.cfp : C.cfn}"></i>Cumulative cash flow</span>
+    </div>
+    <div class="pf-chart-total">Year 10: <strong>${fmt(total)}</strong> in equity + cash flow on ${fmt(cashIn)} invested (before income taxes and selling costs).</div>`;
+}
+
+// backup
+function exportDeals(btn) { copyText(JSON.stringify({ v: 1, deals }), btn); }
+function importDeals() {
+  const msg = $('pfImportMsg');
+  try {
+    const data = JSON.parse($('pfImport').value);
+    const incoming = Array.isArray(data) ? data : data.deals;
+    if (!Array.isArray(incoming)) throw new Error();
+    let added = 0;
+    incoming.forEach(d => {
+      if (!d || !d.inputs || !d.id) return;
+      const i = deals.findIndex(x => x.id === d.id);
+      if (i >= 0) deals[i] = d; else { deals.push(d); added++; }
+    });
+    persistDeals(); renderPortfolio();
+    $('pfImport').value = '';
+    msg.textContent = `Imported ${incoming.length} deal${incoming.length === 1 ? '' : 's'} (${added} new).`;
+  } catch (e) { msg.textContent = "That doesn't look like an SFRcalc backup. Copy it again and paste the whole thing."; }
+}
+
+[['pfCash', 'cash'], ['pfClosing', 'closingPct'], ['pfApp', 'app'], ['pfRg', 'rg']].forEach(([id, k]) => {
+  $(id).addEventListener('input', e => { const v = parseFloat(e.target.value); if (isFinite(v)) { pf[k] = v; savePfSettings(); renderPortfolio(); } });
+});
+updateTabCount();
+if (location.hash === '#portfolio') switchView('portfolio');
+let pfResizeT; window.addEventListener('resize', () => { clearTimeout(pfResizeT); pfResizeT = setTimeout(() => { if (!$('portfolioView').hidden) renderPortfolio(); }, 150); });
 
 window.addEventListener('hashchange', importFromHash);
 importFromHash();
