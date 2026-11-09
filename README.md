@@ -1,4 +1,6 @@
-# DSCR Analyzer
+# RE Investment Analysis
+
+Live at https://dwooley11.github.io/SFRcalc/ (repo and ⚡ SFRcalc button keep the original name so existing bookmarks keep working).
 
 Investment property cash flow underwriting tool. Everything updates live as you type. Rent starts at the Zillow Rent Zestimate (or the rent needed to hit your target DSCR), down payment starts at 25%, and a single Hit Target DSCR panel back-solves rent, cash down, or max price.
 
