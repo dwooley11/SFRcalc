@@ -1157,7 +1157,7 @@
 
 <nav class="view-tabs" role="tablist" aria-label="Views">
   <button class="view-tab active" role="tab" id="tabAnalyze" aria-selected="true" onclick="switchView('analyze')">Analyze</button>
-  <button class="view-tab" role="tab" id="tabPortfolio" aria-selected="false" onclick="switchView('portfolio')">Portfolio <span class="tab-count" id="pfCount"></span></button>
+  <button class="view-tab" role="tab" id="tabPortfolio" aria-selected="false" onclick="switchView('portfolio')">Potential Portfolio <span class="tab-count" id="pfCount"></span></button>
 </nav>
 
 <div id="analyzeView">
@@ -1377,7 +1377,7 @@
 <section class="pf" id="portfolioView" hidden>
   <div class="pf-head">
     <div>
-      <h2 class="pf-title">Portfolio</h2>
+      <h2 class="pf-title">Potential Portfolio</h2>
       <p class="pf-sub">Deals you've saved from the analyzer. Totals count only deals marked <strong>Potential Portfolio</strong>; <strong>Watching</strong> deals are parked here without using your cash.</p>
     </div>
     <div class="pf-settings">
@@ -2601,7 +2601,7 @@ function renderSaveRow(p, m) {
   if (editingDealId && !cur) editingDealId = null;
   const match = !cur ? matchingDeal(p.address) : null;
   const flashHtml = saveFlash
-    ? `<div class="save-flash">✓ ${escapeHtml(saveFlash)} · <button onclick="switchView('portfolio')">View portfolio →</button></div>` : '';
+    ? `<div class="save-flash">✓ ${escapeHtml(saveFlash)} · <button onclick="switchView('portfolio')">View Potential Portfolio →</button></div>` : '';
   let html;
   if (cur) {
     const other = cur.status === 'portfolio' ? 'watching' : 'portfolio';
